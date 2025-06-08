@@ -11,18 +11,18 @@ impl Plugin for StagePlugin {
 
 #[derive(Bundle)]
 struct StageBundle {
-	stage_manager: StageManager,
+	stage: Stage,
 	camera: Camera3d,
 	transform: Transform,
 	spotlight: PointLight,
 }
 
 #[derive(Component)]
-struct StageManager {
+struct Stage {
 	current_stage_id: u32,
 }
 
-impl StageManager {
+impl Stage {
 	fn new() -> Self {
 		Self { current_stage_id: 0 }
 	}
@@ -34,7 +34,7 @@ fn init_stage(
 	mut materials: ResMut<Assets<StandardMaterial>>
 ) {
 	commands.spawn(StageBundle{
-		stage_manager: StageManager::new(),
+		stage: Stage::new(),
 		camera: Camera3d::default(),
 		transform: Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
 		spotlight: PointLight { shadows_enabled: true, ..default() },

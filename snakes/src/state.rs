@@ -9,7 +9,7 @@ impl Plugin for StatePlugin {
 	}
 }
 
-enum GameState {
+enum GameStateData {
 	Init,
 	Setup,
 	Start,
@@ -20,37 +20,37 @@ enum GameState {
 
 #[derive(Bundle)]
 struct GameStateBundle {
-	data: GameStateData,
+	data: GameState,
 }
 
 #[derive(Component)]
-struct GameStateData {
-	current_state: GameState,
+struct GameState {
+	current_state: GameStateData,
 }
 
-impl GameStateData {
+impl GameState {
 	fn new() -> Self {
-		Self { current_state: GameState::Init }
+		Self { current_state: GameStateData::Init }
 	}
 
-	fn set_gamestate(&mut self, target_state: GameState) {
+	fn set_gamestate(&mut self, target_state: GameStateData) {
 		match target_state {
-			GameState::Init => {
+			GameStateData::Init => {
 				println!("game state: Init");
 			}
-			GameState::Setup => {
+			GameStateData::Setup => {
 				println!("game state: Setup");
 			},
-			GameState::Start => {
+			GameStateData::Start => {
 				println!("game state: Start");
 			},
-			GameState::Play => {
+			GameStateData::Play => {
 				println!("game state: Play");
 			},
-			GameState::Win => {
+			GameStateData::Win => {
 				println!("game state: Win");
 			},
-			GameState::Death => {
+			GameStateData::Death => {
 				println!("game state: Death");
 			},
 		}
@@ -63,29 +63,29 @@ fn init_gamestate(mut commands: Commands) {
 	println!("starting snakes game!");
 	
 	commands.spawn(GameStateBundle{
-		data: GameStateData::new(),
+		data: GameState::new(),
 	});
 }
 
-fn update_gamestate(mut query: Query<&mut GameStateData>, time: Res<Time>) {
+fn update_gamestate(mut query: Query<&mut GameState>, time: Res<Time>) {
 	for (mut gs) in &mut query {
 		match gs.current_state {
-			GameState::Init => {
-				gs.set_gamestate(GameState::Setup);
+			GameStateData::Init => {
+				gs.set_gamestate(GameStateData::Setup);
 			}
-			GameState::Setup => {
+			GameStateData::Setup => {
 				
 			},
-			GameState::Start => {
+			GameStateData::Start => {
 				
 			},
-			GameState::Play => {
+			GameStateData::Play => {
 				
 			},
-			GameState::Win => {
+			GameStateData::Win => {
 				
 			},
-			GameState::Death => {
+			GameStateData::Death => {
 				
 			},
 		}
