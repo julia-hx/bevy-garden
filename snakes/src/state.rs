@@ -6,40 +6,51 @@ impl Plugin for StatePlugin {
 	fn build(&self, app: &mut App) {
 		app.add_systems(Startup, init_gamestate);
 		app.add_systems(Update, update_gamestate);
+		app.add_event::<GameStateEvent>();
 	}
 }
 
-enum GameStateData {
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+pub enum GameStateData {
 	Init,
-	Setup,
+	Setup(SetupData),
 	Start,
 	Play,
 	Win,
 	Death,
 }
 
+#[derive(Event)]
+pub struct GameStateEvent {
+	pub data: GameStateData, // TODO: figure out good way to pass by ref
+}
+
 #[derive(Bundle)]
 struct GameStateBundle {
-	data: GameState,
+	game_state: GameState,
 }
 
 #[derive(Component)]
 struct GameState {
-	current_state: GameStateData,
+	data: GameStateData,
 }
 
 impl GameState {
 	fn new() -> Self {
-		Self { current_state: GameStateData::Init }
+		Self {
+			data: GameStateData::Init,
+		}
 	}
 
-	fn set_gamestate(&mut self, target_state: GameStateData) {
+	fn set_gamestate(&mut self, target_state: GameStateData, event_writer: &mut EventWriter<GameStateEvent>) {
 		match target_state {
 			GameStateData::Init => {
 				println!("game state: Init");
 			}
-			GameStateData::Setup => {
-				println!("game state: Setup");
+			GameStateData::Setup (setup_data) => {
+				println!("game state: Setup stage {}", setup_data.stage_id);
 			},
 			GameStateData::Start => {
 				println!("game state: Start");
@@ -55,7 +66,8 @@ impl GameState {
 			},
 		}
 
-		self.current_state = target_state;
+		event_writer.write(GameStateEvent { data: target_state.clone() }); // no clone plz
+		self.data = target_state;
 	}
 }
 
@@ -63,17 +75,20 @@ fn init_gamestate(mut commands: Commands) {
 	println!("starting snakes game!");
 	
 	commands.spawn(GameStateBundle{
-		data: GameState::new(),
+		game_state: GameState::new(),
 	});
 }
 
-fn update_gamestate(mut query: Query<&mut GameState>, time: Res<Time>) {
-	for (mut gs) in &mut query {
-		match gs.current_state {
+fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>, 
+	mut query: Query<&mut GameState>,
+) {
+	for mut gs in &mut query {
+		match gs.data {
 			GameStateData::Init => {
-				gs.set_gamestate(GameStateData::Setup);
-			}
-			GameStateData::Setup => {
+				let initial_setup_data = GameStateData::Setup(SetupData { stage_id: 0 });
+				gs.set_gamestate(initial_setup_data, &mut event_writer);
+			},
+			GameStateData::Setup(_setup_data) => {
 				
 			},
 			GameStateData::Start => {
@@ -90,4 +105,11 @@ fn update_gamestate(mut query: Query<&mut GameState>, time: Res<Time>) {
 			},
 		}
 	}
+}
+
+#[derive(Clone)]
+#[derive(Copy)]
+#[derive(Debug)]
+pub struct SetupData {
+	pub stage_id: u32,
 }
