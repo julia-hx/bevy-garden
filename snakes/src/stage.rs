@@ -103,7 +103,7 @@ impl Stage {
 	}
 
 	fn load_stage_layout(&mut self, stage_id:u32) {
-        self.current_stage_id = stage_id;
+		self.current_stage_id = stage_id;
 
 		let path = format!("{}{}.txt", LAYOUT_FILEPATH, stage_id);
 		let layout = fs::read_to_string(path).expect("level layout {stage_id} not found!");
