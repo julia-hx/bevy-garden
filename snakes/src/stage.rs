@@ -28,7 +28,7 @@ struct Stage {
 	current_stage_id: u32,
 	stage_layout: Vec<String>,
 	stage_setting_index: u32,
-	gamestate: GameStateData,
+	gamestate: GameStateData, // TODO: make resource
 	camera_distance: f32,
 }
 
@@ -61,7 +61,7 @@ fn update_stage(
 
 	for (mut stage, mut _camera, mut _light) in &mut query {
 		if event_received {
-			stage.gamestate = event_data.clone(); // TODO: not clone this?
+			stage.gamestate = event_data.clone(); // TODO: make resource
 			match stage.gamestate {
 				GameStateData::Init => {},
 				GameStateData::Setup (setup_data) => {
@@ -138,8 +138,6 @@ impl Stage {
 
 			for c in line.chars() {
 				xf += 1.0;
-
-				// println!("...{} {} {}...", yf, xf, c);
 
 				if c == '_' {
 					continue;

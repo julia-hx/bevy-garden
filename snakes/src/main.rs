@@ -16,7 +16,7 @@ fn main() {
 		.insert_resource(ClearColor(Color::srgb(0.2, 0.2, 0.22)))
 		.insert_resource(AmbientLight {
 			color: Color::default(),
-			brightness: 100.0,
+			brightness: 200.0,
 			affects_lightmapped_meshes: false,
 		})
 		.add_plugins((ScorePlugin, SnacksPlugin, SnakePlugin, StagePlugin, StatePlugin))

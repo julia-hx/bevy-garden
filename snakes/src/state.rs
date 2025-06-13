@@ -37,6 +37,11 @@ struct GameState {
 	data: GameStateData,
 }
 
+#[derive(Resource)]
+struct GameSateResource {
+	data: GameStateData,
+}
+
 impl GameState {
 	fn new() -> Self {
 		Self {
@@ -66,7 +71,7 @@ impl GameState {
 			},
 		}
 
-		event_writer.write(GameStateEvent { data: target_state.clone() }); // no clone plz
+		event_writer.write(GameStateEvent { data: target_state.clone() }); // TODO: no clone plz
 		self.data = target_state;
 	}
 }
@@ -85,7 +90,7 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 	for mut gs in &mut query {
 		match gs.data {
 			GameStateData::Init => {
-				let initial_setup_data = GameStateData::Setup(SetupData { stage_id: 0 });
+				let initial_setup_data = GameStateData::Setup(SetupData::new());
 				gs.set_gamestate(initial_setup_data, &mut event_writer);
 			},
 			GameStateData::Setup(_setup_data) => {
@@ -93,7 +98,7 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 			},
 			GameStateData::Start => {
 				
-			},
+			}, 
 			GameStateData::Play => {
 				
 			},
@@ -102,7 +107,7 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 			},
 			GameStateData::Death => {
 				
-			},
+			}, 
 		}
 	}
 }
@@ -112,4 +117,14 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 #[derive(Debug)]
 pub struct SetupData {
 	pub stage_id: u32,
+	pub move_interval: f32,
+}
+
+impl SetupData {
+	fn new() -> Self {
+		Self {
+			stage_id: 0,
+			move_interval: 0.33,
+		}
+	}
 }
