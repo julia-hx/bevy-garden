@@ -5,7 +5,7 @@ use std::fs;
 const LAYOUT_FILEPATH: &str = "./assets/stage_layouts/stage_";
 const TILE_SIZE: f32 = 0.94;
 const DEFAULT_SPOTLIGHT_INTENSITY: f32 = 8_000_000.0;
-const DEFAULT_STAGE_SETTING_INTERVAL: f32 = 1.0;
+const DEFAULT_STAGE_SETTING_INTERVAL: f32 = 0.5;
 
 pub struct StagePlugin;
 
@@ -32,10 +32,10 @@ struct SpotlightBundle {
 
 #[derive(Component)]
 struct Stage {
-	current_stage_id: u32,
-	stage_layout: Vec<String>,
-	stage_width: usize,
-	stage_height: usize,
+	id: u32,
+	layout: Vec<String>,
+	width: usize,
+	height: usize,
 	stage_setting_data: StageSettingData,
 	camera_translation: Vec3,
 	colors: StageColors,
@@ -64,11 +64,14 @@ impl StageColors {
 	}
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 struct StageSettingData {
 	interval: f32,
+	current_line: String,
 	progress_x: usize,
 	progress_y: usize,
+	x: f32,
+	y: f32,
 	tile_placed_time: f32,
 	in_progress: bool,
 }
@@ -77,8 +80,11 @@ impl StageSettingData {
 	fn new() -> Self {
 		Self {
 			interval: DEFAULT_STAGE_SETTING_INTERVAL,
+			current_line: String::from("_"),
 			progress_x: 0,
 			progress_y: 0,
+			x: 0.0,
+			y: 0.0,
 			tile_placed_time: 0.0,
 			in_progress: false,
 		}
@@ -135,11 +141,12 @@ fn read_gamestate_events(
 			match event_data {
 				GameStateData::Init => {},
 				GameStateData::Setup (setup_data) => {
-					stage.load_stage_layout(setup_data.stage_id);
+					stage.load_layout(setup_data.stage_id);
 					stage.calculate_camera_translation();
 					stage.stage_setting_data = StageSettingData::new();
 					stage.stage_setting_data.in_progress = true;
-					println!("stage: Setting stage {}", stage.current_stage_id);
+					stage.stage_setting_data.current_line = stage.layout[0].clone();
+					println!("stage: Setting stage {}", stage.id);
 					break;
 				},
 				GameStateData::Start => {
@@ -185,10 +192,9 @@ fn update_stage(
 				let cc = clear_color.0.mix(&stage.colors.clear_color, time.delta_secs());
 				clear_color.0 = cc;
 				// tick stage setting
-				stage.update_set_stage(commands, meshes, materials);
+				stage.update_set_stage(commands, meshes, materials, time.elapsed_secs());
 
 				if !stage.stage_setting_data.in_progress {
-					println!("yes it's done!");
 					setup_data.setup_done = true; // could be a fancy event but this works as well!
 				}
 				
@@ -236,18 +242,20 @@ fn update_spotlight(
 impl Stage {
 	fn new() -> Self {
 		Self { 
-			current_stage_id: 0, // would be better to init to -1 but u32 for now
-			stage_layout: vec![],
+			id: 0, // would be better to init to -1 but u32 for now
+			layout: vec![],
 			stage_setting_data: StageSettingData::new(),
-			stage_width: 0,
-			stage_height: 0,
+			width: 0,
+			height: 0,
 			camera_translation: Vec3::new(0.0, 0.0, 0.0),
 			colors: StageColors::new(),
 		}
 	}
 
-	fn load_stage_layout(&mut self, stage_id:u32) {
-		self.current_stage_id = stage_id;
+	fn load_layout(&mut self, stage_id:u32) {
+		self.id = stage_id;
+
+		println!("stage: attempting to load layout for id {}", stage_id);
 
 		let path = format!("{}{}.txt", LAYOUT_FILEPATH, stage_id);
 		let layout = fs::read_to_string(path).expect("level layout {stage_id} not found!");
@@ -255,29 +263,29 @@ impl Stage {
 		println!("stage: loaded layout {}:\n{}", stage_id, layout);
 		// TODO: validate layout
 		
-		self.stage_layout = vec![];
+		self.layout = vec![];
 		for line in layout.lines() {
-			self.stage_layout.push(String::from(line));
+			self.layout.push(String::from(line));
 		}
 		
-		self.stage_height = self.stage_layout.len();
-		self.stage_width = self.stage_layout[0].len();
+		self.height = self.layout.len();
+		self.width = self.layout[0].len();
 
-		println!("stage height: {} width: {}", self.stage_height, self.stage_width);
+		println!("stage height: {} width: {}", self.height, self.width);
 	}
 
 	fn calculate_camera_translation(&mut self) {
-		if self.stage_layout.len() == 0 { self.camera_translation = Vec3::ZERO; }
+		if self.layout.len() == 0 { self.camera_translation = Vec3::ZERO; }
 		
 		let mut x: f32 = 0.0;
 		let mut z: f32 = 0.0;
 		let mut line_length_set = false;
 		
 		// roundabout way of not doing unsafe casting
-		for _i in 0..self.stage_height {
+		for _i in 0..self.height {
 			z += 1.0;
 			if !line_length_set {
-				for _j in 0..self.stage_width {
+				for _j in 0..self.width {
 					x += 1.0;
 				}
 				line_length_set = true;
@@ -297,16 +305,72 @@ impl Stage {
 	fn update_set_stage(&mut self,
 		mut commands: Commands,
 		mut meshes: ResMut<Assets<Mesh>>,
-		mut materials: ResMut<Assets<StandardMaterial>>
+		mut materials: ResMut<Assets<StandardMaterial>>,
+		time: f32,
 	) {
-		if !self.stage_setting_data.in_progress { return; }
 		
+		let data = &mut self.stage_setting_data;
+		if !data.in_progress { return; }
+		if time < data.tile_placed_time + data.interval { return; }
+		
+		// set tile at current x and y
+		let c = data.current_line.chars()
+			.nth(data.progress_x)
+			.unwrap_or('_');
+
+		match c {
+			'A' => {
+				commands.spawn((
+					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
+					MeshMaterial3d(materials.add(self.colors.tiles_a)),
+					Transform::from_xyz(data.x, 0.5, data.y), // coordinate swizzle xyz to xzy - top down view
+				));
+			}
+			'B' => {
+				commands.spawn((
+					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
+					MeshMaterial3d(materials.add(self.colors.tiles_b)),
+					Transform::from_xyz(data.x, 0.5, data.y),
+				));
+			}
+			'C' => {
+				commands.spawn((
+					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
+					MeshMaterial3d(materials.add(self.colors.tiles_c)),
+					Transform::from_xyz(data.x, 0.5, data.y),
+				));
+			}
+			_ => {}
+		}
+
+		// tick x and y
+		if data.progress_x < self.width - 1 { // move through line
+			data.progress_x += 1;
+			data.x += 1.0;
+		} else if data.progress_y < self.height - 1 { // get next line
+			data.progress_x = 0;
+			data.x = 0.0;
+			data.progress_y += 1;
+			data.y += 1.0;
+			data.current_line = self.layout[data.progress_y].clone();
+		} else { // done!
+			data.in_progress = false; 
+		}
+
+		if data.interval > 0.05 {
+			data.interval = data.interval * 0.86;
+		} else {
+			data.interval = 0.001; // tick more or less every frame for the rest
+		}
+		data.tile_placed_time = time;
+
+		/*
 		let mut yf: f32 = -1.0;
-		
+
 		// we can follow the direction of the lines in a textfile (starting from top),
 		// because 3d z+ (treated as 2d y+ in top-down) is towards the player.
-		for y in 0..self.stage_layout.len() {
-			let line = &self.stage_layout[y];
+		for y in 0..self.layout.len() {
+			let line = &self.layout[y];
 			println!("...building layout line {}: {}...", y, line);
 
 			yf += 1.0;
@@ -344,5 +408,6 @@ impl Stage {
 
 		println!("...stage setting done!");
 		self.stage_setting_data.in_progress = false;
+		*/
 	}
 }

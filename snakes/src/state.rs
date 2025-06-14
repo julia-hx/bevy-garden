@@ -80,7 +80,6 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 			game_state.set_data(initial_setup_data, &mut event_writer);
 		},
 		GameStateData::Setup(setup_data) => {
-			println!("are we done? {}", setup_data.setup_done);
 			if setup_data.setup_done { game_state.set_data(GameStateData::Play, &mut event_writer); }
 		},
 		GameStateData::Start => {
