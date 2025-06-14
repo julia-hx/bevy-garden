@@ -100,14 +100,18 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 #[derive(Debug, Clone, Copy)]
 pub struct SetupData {
 	pub stage_id: u32,
-	pub move_interval: f32,
+	pub move_speed: f32,
+	pub spotlight_translation: Vec3,
+	pub spotlight_intensity_multiplier: f32,
 }
 
 impl SetupData {
 	fn new() -> Self {
 		Self {
 			stage_id: 0,
-			move_interval: 0.6,
+			move_speed: 1.0,
+			spotlight_translation: Vec3::new(6.0, 8.0, 4.0),
+			spotlight_intensity_multiplier: 1.0,
 		}
 	}
 }

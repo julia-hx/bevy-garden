@@ -3,6 +3,7 @@ use crate::state:: { GameState, GameStateData, GameStateEvent };
 
 const HEAD_SIZE: f32 = 1.0;
 const SNAKE_Y: f32 = 1.4;
+const DEFAULT_MOVE_INTERVAL: f32 = 0.6;
 
 pub struct SnakePlugin;
 
@@ -108,7 +109,13 @@ fn read_gamestate_events(
 	for mut snake in &mut query {
 		match gamestate_data {
 			GameStateData::Init => {},
-			GameStateData::Setup (setup_data)=> { snake.move_interval = setup_data.move_interval; },
+			GameStateData::Setup (setup_data)=> { 
+				if setup_data.move_speed > 0.1 {
+					snake.move_interval = DEFAULT_MOVE_INTERVAL / setup_data.move_speed; 
+				} else {
+					snake.move_interval = DEFAULT_MOVE_INTERVAL;
+				}
+			},
 			GameStateData::Start => {},
 			GameStateData::Play => {},
 			GameStateData::Win => {},
