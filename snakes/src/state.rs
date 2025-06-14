@@ -4,16 +4,16 @@ pub struct StatePlugin;
 
 impl Plugin for StatePlugin {
 	fn build(&self, app: &mut App) {
+		app.init_resource::<GameState>();
 		app.add_systems(Startup, init_gamestate);
 		app.add_systems(Update, update_gamestate);
 		app.add_event::<GameStateEvent>();
 	}
 }
 
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
+#[derive(Default, Debug, Clone)]
 pub enum GameStateData {
+	#[default]
 	Init,
 	Setup(SetupData),
 	Start,
@@ -22,35 +22,26 @@ pub enum GameStateData {
 	Death,
 }
 
+// There is some duplication with GameStateEvent vs GameState as a resource.
+// While one is used to actively trigger discrete global events,
+// the other is passively available as a global resource - 
+// but both are meant to always contain the same data.
+// A better solution would be for the Resource to own the data, 
+// and the events to propagate a cloneable or copyable ref.
+
 #[derive(Event)]
 pub struct GameStateEvent {
 	pub data: GameStateData, // TODO: figure out good way to pass by ref
 }
 
-#[derive(Bundle)]
-struct GameStateBundle {
-	game_state: GameState,
-}
-
-#[derive(Component)]
-struct GameState {
-	data: GameStateData,
-}
-
-#[derive(Resource)]
-struct GameSateResource {
-	data: GameStateData,
+#[derive(Resource, Default)]
+pub struct GameState {
+	pub data: GameStateData,
 }
 
 impl GameState {
-	fn new() -> Self {
-		Self {
-			data: GameStateData::Init,
-		}
-	}
-
-	fn set_gamestate(&mut self, target_state: GameStateData, event_writer: &mut EventWriter<GameStateEvent>) {
-		match target_state {
+	fn set_data(&mut self, data: GameStateData, event_writer: &mut EventWriter<GameStateEvent>) {
+		match data {
 			GameStateData::Init => {
 				println!("game state: Init");
 			}
@@ -71,50 +62,42 @@ impl GameState {
 			},
 		}
 
-		event_writer.write(GameStateEvent { data: target_state.clone() }); // TODO: no clone plz
-		self.data = target_state;
+		event_writer.write(GameStateEvent { data: data.clone() });
+		self.data = data;
 	}
 }
 
-fn init_gamestate(mut commands: Commands) {
+fn init_gamestate() {
 	println!("starting snakes game!");
-	
-	commands.spawn(GameStateBundle{
-		game_state: GameState::new(),
-	});
 }
 
 fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>, 
-	mut query: Query<&mut GameState>,
+	mut game_state: ResMut<GameState>,
 ) {
-	for mut gs in &mut query {
-		match gs.data {
-			GameStateData::Init => {
-				let initial_setup_data = GameStateData::Setup(SetupData::new());
-				gs.set_gamestate(initial_setup_data, &mut event_writer);
-			},
-			GameStateData::Setup(_setup_data) => {
-				
-			},
-			GameStateData::Start => {
-				
-			}, 
-			GameStateData::Play => {
-				
-			},
-			GameStateData::Win => {
-				
-			},
-			GameStateData::Death => {
-				
-			}, 
-		}
+	match game_state.data {
+		GameStateData::Init => {
+			let initial_setup_data = GameStateData::Setup(SetupData::new());
+			game_state.set_data(initial_setup_data, &mut event_writer);
+		},
+		GameStateData::Setup(_setup_data) => {
+			
+		},
+		GameStateData::Start => {
+			
+		}, 
+		GameStateData::Play => {
+			
+		},
+		GameStateData::Win => {
+			
+		},
+		GameStateData::Death => {
+			
+		}, 
 	}
 }
 
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SetupData {
 	pub stage_id: u32,
 	pub move_interval: f32,
@@ -124,7 +107,7 @@ impl SetupData {
 	fn new() -> Self {
 		Self {
 			stage_id: 0,
-			move_interval: 0.33,
+			move_interval: 0.6,
 		}
 	}
 }

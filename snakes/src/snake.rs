@@ -1,7 +1,7 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-use crate::state:: { GameStateData, GameStateEvent };
+use crate::state:: { GameState, GameStateData, GameStateEvent };
 
-const HEAD_SIZE: f32 = 0.88;
+const HEAD_SIZE: f32 = 1.0;
 const SNAKE_Y: f32 = 1.4;
 
 pub struct SnakePlugin;
@@ -20,9 +20,8 @@ pub struct Snake {
 	pub id: u32,
 	pub direction: Direction,
 	pub positions: Vec<Vec3>,
-	pub last_move_time: f32,
-	pub move_interval: f32,
-	gamestate: GameStateData, // TODO: make gamestate data resource
+	last_move_time: f32,
+	move_interval: f32,
 }
 
 #[derive(Component)]
@@ -49,8 +48,11 @@ impl Snake {
 			positions: vec![],
 			last_move_time: 0.0,
 			move_interval: 1.0,
-			gamestate: GameStateData::Init,
 		}
+	}
+
+	fn set_direction(&mut self, direction: Direction) {
+		self.direction = direction;
 	}
 }
 
@@ -90,27 +92,23 @@ fn init_snakes(
 
 fn read_gamestate_events(
 	mut gamestate_events: EventReader<GameStateEvent>,
-	mut query: Query<(&mut Snake, &mut Transform)>,
+	mut query: Query<&mut Snake>,
 ) {
 	let mut event_received = false;
-	let mut event_data: &GameStateData = &GameStateData::Init;
+	let mut gamestate_data = GameStateData::Init;
 	
 	for e in gamestate_events.read() {
 		event_received = true;
-		event_data = &e.data;
+		gamestate_data = e.data.clone();
 		break;
 	}
 
 	if !event_received { return; }
 
-	for (mut snake, mut transform) in &mut query {
-		snake.gamestate = event_data.clone(); // TODO: make resource
-		
-		match snake.gamestate {
+	for mut snake in &mut query {
+		match gamestate_data {
 			GameStateData::Init => {},
-			GameStateData::Setup (setup_data)=> {
-				snake.move_interval = setup_data.move_interval;
-			},
+			GameStateData::Setup (setup_data)=> { snake.move_interval = setup_data.move_interval; },
 			GameStateData::Start => {},
 			GameStateData::Play => {},
 			GameStateData::Win => {},
@@ -122,7 +120,7 @@ fn read_gamestate_events(
 fn read_input(
 	mut key_events: EventReader<KeyboardInput>,
 	mut query: Query<(&mut Snake, &mut InputMapping)>,
-) {
+) {	
 	for e in key_events.read() {
 		for (mut snake, input_mapping) in &mut query {
 			if e.key_code == input_mapping.up { snake.direction = Direction::Up; }
@@ -135,8 +133,15 @@ fn read_input(
 
 fn move_snakes(
 	time: Res<Time>,
+	game_state: Res<GameState>,
 	mut query: Query<(&mut Snake, &mut Transform)>,
 ) {
+	match &game_state.data {
+		GameStateData::Play => {}
+		GameStateData::Setup(_setup_data) => {}
+		_ => { return; }
+	}
+
 	for(mut snake, mut transform) in &mut query {
 		if snake.last_move_time + snake.move_interval >= time.elapsed_secs() { continue; }
 
@@ -152,6 +157,5 @@ fn move_snakes(
 
 		*transform = Transform::from_xyz(x, SNAKE_Y, z);
 		snake.last_move_time = time.elapsed_secs();
-		println!("move {}", snake.last_move_time);
 	}
 }
