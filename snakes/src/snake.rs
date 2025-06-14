@@ -53,6 +53,10 @@ impl Snake {
 	}
 
 	fn set_direction(&mut self, direction: Direction) {
+		if is_opposite_direction(&self.direction, &direction) {
+			println!("-- snake can't turn around on itself!");
+			return;
+		}
 		self.direction = direction;
 	}
 }
@@ -130,10 +134,10 @@ fn read_input(
 ) {	
 	for e in key_events.read() {
 		for (mut snake, input_mapping) in &mut query {
-			if e.key_code == input_mapping.up { snake.direction = Direction::Up; }
-			else if e.key_code == input_mapping.down { snake.direction = Direction::Down; }
-			else if e.key_code == input_mapping.left { snake.direction = Direction::Left; }
-			else if e.key_code == input_mapping.right { snake.direction = Direction::Right; }
+			if e.key_code == input_mapping.up { snake.set_direction(Direction::Up); }
+			else if e.key_code == input_mapping.down { snake.set_direction(Direction::Down); }
+			else if e.key_code == input_mapping.left { snake.set_direction(Direction::Left); }
+			else if e.key_code == input_mapping.right { snake.set_direction(Direction::Right); }
 		}
 	}
 } 
@@ -141,15 +145,14 @@ fn read_input(
 fn move_snakes(
 	time: Res<Time>,
 	game_state: Res<GameState>,
-	mut query: Query<(&mut Snake, &mut Transform)>,
+	query: Query<(&mut Snake, &mut Transform)>,
 ) {
 	match &game_state.data {
 		GameStateData::Play => {}
-		GameStateData::Setup(_setup_data) => {}
 		_ => { return; }
 	}
 
-	for(mut snake, mut transform) in &mut query {
+	for(mut snake, mut transform) in query {
 		if snake.last_move_time + snake.move_interval >= time.elapsed_secs() { continue; }
 
 		let mut x = transform.translation.x;
@@ -164,5 +167,15 @@ fn move_snakes(
 
 		*transform = Transform::from_xyz(x, SNAKE_Y, z);
 		snake.last_move_time = time.elapsed_secs();
+	}
+}
+
+fn is_opposite_direction(a: &Direction, b: &Direction) -> bool {
+	match (a, b) {
+		(Direction::Up, Direction::Down) => { return true; }
+		(Direction::Down, Direction::Up) => { return true; }
+		(Direction::Left, Direction::Right) => { return true; }
+		(Direction::Right, Direction::Left) => { return true; }
+		(_, _) => { return false; }
 	}
 }

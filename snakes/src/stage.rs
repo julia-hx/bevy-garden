@@ -5,6 +5,7 @@ use std::fs;
 const LAYOUT_FILEPATH: &str = "./assets/stage_layouts/stage_";
 const TILE_SIZE: f32 = 0.94;
 const DEFAULT_SPOTLIGHT_INTENSITY: f32 = 8_000_000.0;
+const DEFAULT_STAGE_SETTING_INTERVAL: f32 = 1.0;
 
 pub struct StagePlugin;
 
@@ -35,8 +36,7 @@ struct Stage {
 	stage_layout: Vec<String>,
 	stage_width: usize,
 	stage_height: usize,
-	stage_setting_x: usize,
-	stage_setting_y: usize,
+	stage_setting_data: StageSettingData,
 	camera_translation: Vec3,
 	colors: StageColors,
 }
@@ -60,6 +60,27 @@ impl StageColors {
 			clear_color: Color::srgb(0.1, 0.1, 0.12),
 			snacks: Color::srgb_u8(220, 220, 60),
 			ui: Color::WHITE,
+		}
+	}
+}
+
+#[derive(Debug, Copy, Clone)]
+struct StageSettingData {
+	interval: f32,
+	progress_x: usize,
+	progress_y: usize,
+	tile_placed_time: f32,
+	in_progress: bool,
+}
+
+impl StageSettingData {
+	fn new() -> Self {
+		Self {
+			interval: DEFAULT_STAGE_SETTING_INTERVAL,
+			progress_x: 0,
+			progress_y: 0,
+			tile_placed_time: 0.0,
+			in_progress: false,
 		}
 	}
 }
@@ -96,9 +117,7 @@ fn init_stage(
 }
 
 fn read_gamestate_events(
-	commands: Commands,
-	meshes: ResMut<Assets<Mesh>>,
-	materials: ResMut<Assets<StandardMaterial>>,
+	
 	mut gamestate_events: EventReader<GameStateEvent>,
 	mut query: Query<&mut Stage>
 ) {
@@ -118,11 +137,9 @@ fn read_gamestate_events(
 				GameStateData::Setup (setup_data) => {
 					stage.load_stage_layout(setup_data.stage_id);
 					stage.calculate_camera_translation();
-					stage.set_stage(
-						commands,
-						meshes,
-						materials
-					);
+					stage.stage_setting_data = StageSettingData::new();
+					stage.stage_setting_data.in_progress = true;
+					println!("stage: Setting stage {}", stage.current_stage_id);
 					break;
 				},
 				GameStateData::Start => {
@@ -143,25 +160,48 @@ fn read_gamestate_events(
 }
 
 fn update_stage(
-	game_state: Res<GameState>,
+	mut game_state: ResMut<GameState>,
 	time: Res<Time>,
+	commands: Commands,
+	meshes: ResMut<Assets<Mesh>>,
+	materials: ResMut<Assets<StandardMaterial>>,
 	mut clear_color: ResMut<ClearColor>,
 	query: Query<(&mut Stage, &mut Transform)>
 ) {
-	for (stage, mut transform) in query {
-		// animate camera
-		let current_translation = transform.translation;
-		let almost_equal = current_translation.abs_diff_eq(stage.camera_translation, 0.001);
-		if !almost_equal {
-			transform.translation = current_translation.lerp(stage.camera_translation, time.delta_secs());
-		} else {
-			transform.translation = stage.camera_translation;
+	for (mut stage, mut transform) in query {
+		match &mut game_state.data {
+			GameStateData::Setup(setup_data) => {
+				// animate camera
+				let current_translation = transform.translation;
+				let almost_equal = current_translation.abs_diff_eq(stage.camera_translation, 0.001);
+				if !almost_equal {
+					transform.translation = current_translation.lerp(stage.camera_translation, time.delta_secs());
+				} else {
+					transform.translation = stage.camera_translation;
+				}
+				let lookat = Vec3::new(stage.camera_translation.x, 0.0, stage.camera_translation.z);
+				transform.look_at(lookat, -Vec3::Z);	
+				// animate clear color
+				let cc = clear_color.0.mix(&stage.colors.clear_color, time.delta_secs());
+				clear_color.0 = cc;
+				// tick stage setting
+				stage.update_set_stage(commands, meshes, materials);
+
+				if !stage.stage_setting_data.in_progress {
+					println!("yes it's done!");
+					setup_data.setup_done = true; // could be a fancy event but this works as well!
+				}
+				
+				return;
+			}
+			GameStateData::Play => {
+				// snap into place if not already
+				transform.translation = stage.camera_translation;
+				transform.look_at(Vec3::new(stage.camera_translation.x, 0.0, stage.camera_translation.z), -Vec3::Z);
+				clear_color.0 = stage.colors.clear_color;
+			}
+			_=> { return; }
 		}
-		let lookat = Vec3::new(stage.camera_translation.x, 0.0, stage.camera_translation.z);
-		transform.look_at(lookat, -Vec3::Z);	
-		// clear color
-		let cc = clear_color.0.mix(&stage.colors.clear_color, time.delta_secs());
-		clear_color.0 = cc;
 	}
 }
 
@@ -198,8 +238,7 @@ impl Stage {
 		Self { 
 			current_stage_id: 0, // would be better to init to -1 but u32 for now
 			stage_layout: vec![],
-			stage_setting_x: 0,
-			stage_setting_y: 0,
+			stage_setting_data: StageSettingData::new(),
 			stage_width: 0,
 			stage_height: 0,
 			camera_translation: Vec3::new(0.0, 0.0, 0.0),
@@ -255,12 +294,12 @@ impl Stage {
 		dbg!(self.camera_translation);
 	}
 
-	fn set_stage(&mut self,
-		mut commands: Commands, 
+	fn update_set_stage(&mut self,
+		mut commands: Commands,
 		mut meshes: ResMut<Assets<Mesh>>,
 		mut materials: ResMut<Assets<StandardMaterial>>
 	) {
-		println!("stage: Setting stage {}", self.current_stage_id);
+		if !self.stage_setting_data.in_progress { return; }
 		
 		let mut yf: f32 = -1.0;
 		
@@ -302,5 +341,8 @@ impl Stage {
 				xf += 1.0;
 			}
 		}
+
+		println!("...stage setting done!");
+		self.stage_setting_data.in_progress = false;
 	}
 }

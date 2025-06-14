@@ -79,8 +79,9 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 			let initial_setup_data = GameStateData::Setup(SetupData::new());
 			game_state.set_data(initial_setup_data, &mut event_writer);
 		},
-		GameStateData::Setup(_setup_data) => {
-			
+		GameStateData::Setup(setup_data) => {
+			println!("are we done? {}", setup_data.setup_done);
+			if setup_data.setup_done { game_state.set_data(GameStateData::Play, &mut event_writer); }
 		},
 		GameStateData::Start => {
 			
@@ -103,6 +104,7 @@ pub struct SetupData {
 	pub move_speed: f32,
 	pub spotlight_translation: Vec3,
 	pub spotlight_intensity_multiplier: f32,
+	pub setup_done: bool,
 }
 
 impl SetupData {
@@ -112,6 +114,7 @@ impl SetupData {
 			move_speed: 1.0,
 			spotlight_translation: Vec3::new(6.0, 8.0, 4.0),
 			spotlight_intensity_multiplier: 1.0,
+			setup_done: false,
 		}
 	}
 }
