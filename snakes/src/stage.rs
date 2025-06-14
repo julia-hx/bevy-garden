@@ -13,7 +13,25 @@ impl Plugin for StagePlugin {
 	fn build(&self, app: &mut App) {
 		app.add_systems(Startup, init_stage);
 		app.add_systems(Update, (read_gamestate_events, update_stage, update_spotlight).chain());
+		app.add_event::<StageEvent>();
 	}
+}
+
+#[derive(Event)]
+pub struct StageEvent {
+	pub data: StageEventData,
+}
+
+#[derive(Clone)]
+pub enum StageEventData {
+	Empty,
+	SetSnakeOrigin(SnakeOriginData),
+}
+
+#[derive(Clone, Copy)]
+pub struct SnakeOriginData {
+	pub snake_id: u32,
+	pub spawn_point: Vec3,
 }
 
 #[derive(Bundle)]
@@ -123,7 +141,6 @@ fn init_stage(
 }
 
 fn read_gamestate_events(
-	
 	mut gamestate_events: EventReader<GameStateEvent>,
 	mut query: Query<&mut Stage>
 ) {
@@ -146,7 +163,7 @@ fn read_gamestate_events(
 					stage.stage_setting_data = StageSettingData::new();
 					stage.stage_setting_data.in_progress = true;
 					stage.stage_setting_data.current_line = stage.layout[0].clone();
-					println!("stage: Setting stage {}", stage.id);
+					println!("stage: setting stage {}", stage.id);
 					break;
 				},
 				GameStateData::Start => {
@@ -167,6 +184,7 @@ fn read_gamestate_events(
 }
 
 fn update_stage(
+	event_writer: EventWriter<StageEvent>,
 	mut game_state: ResMut<GameState>,
 	time: Res<Time>,
 	commands: Commands,
@@ -192,7 +210,7 @@ fn update_stage(
 				let cc = clear_color.0.mix(&stage.colors.clear_color, time.delta_secs());
 				clear_color.0 = cc;
 				// tick stage setting
-				stage.update_set_stage(commands, meshes, materials, time.elapsed_secs());
+				stage.update_set_stage(event_writer, commands, meshes, materials, time.elapsed_secs());
 
 				if !stage.stage_setting_data.in_progress {
 					setup_data.setup_done = true; // could be a fancy event but this works as well!
@@ -200,11 +218,14 @@ fn update_stage(
 				
 				return;
 			}
-			GameStateData::Play => {
+			GameStateData::Start => {
 				// snap into place if not already
 				transform.translation = stage.camera_translation;
 				transform.look_at(Vec3::new(stage.camera_translation.x, 0.0, stage.camera_translation.z), -Vec3::Z);
 				clear_color.0 = stage.colors.clear_color;
+			}
+			GameStateData::Play => {
+				
 			}
 			_=> { return; }
 		}
@@ -294,7 +315,7 @@ impl Stage {
 
 		let y = (z + x * 0.5) * 1.4;
 		z = z / 2.0 - 0.5;
-		x = x / 2.0 - x / 10.0;
+		x = x / 2.0 - 0.5;
 
 		self.camera_translation = Vec3::new(x, y, z);
 
@@ -302,13 +323,16 @@ impl Stage {
 		dbg!(self.camera_translation);
 	}
 
+	// this looks a lot like it could be a system - 
+	// having access to self does make a lot of internal data 
+	// access much easier than handling refs and borrowing.
 	fn update_set_stage(&mut self,
+		mut event_writer: EventWriter<StageEvent>,
 		mut commands: Commands,
 		mut meshes: ResMut<Assets<Mesh>>,
 		mut materials: ResMut<Assets<StandardMaterial>>,
 		time: f32,
 	) {
-		
 		let data = &mut self.stage_setting_data;
 		if !data.in_progress { return; }
 		if time < data.tile_placed_time + data.interval { return; }
@@ -340,6 +364,33 @@ impl Stage {
 					Transform::from_xyz(data.x, 0.5, data.y),
 				));
 			}
+			'1' => {
+				commands.spawn((
+					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
+					MeshMaterial3d(materials.add(self.colors.tiles_a)),
+					Transform::from_xyz(data.x, 0.5, data.y),
+				));
+				let origin_data = SnakeOriginData{ snake_id: 1, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SetSnakeOrigin(origin_data) });
+			}
+			'2' => {
+				commands.spawn((
+					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
+					MeshMaterial3d(materials.add(self.colors.tiles_a)),
+					Transform::from_xyz(data.x, 0.5, data.y),
+				));
+				let origin_data = SnakeOriginData{ snake_id: 2, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SetSnakeOrigin(origin_data) });
+			}
+			'3' => {
+				commands.spawn((
+					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
+					MeshMaterial3d(materials.add(self.colors.tiles_a)),
+					Transform::from_xyz(data.x, 0.5, data.y),
+				));
+				let origin_data = SnakeOriginData{ snake_id: 3, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SetSnakeOrigin(origin_data) });
+			}
 			_ => {}
 		}
 
@@ -363,51 +414,5 @@ impl Stage {
 			data.interval = 0.001; // tick more or less every frame for the rest
 		}
 		data.tile_placed_time = time;
-
-		/*
-		let mut yf: f32 = -1.0;
-
-		// we can follow the direction of the lines in a textfile (starting from top),
-		// because 3d z+ (treated as 2d y+ in top-down) is towards the player.
-		for y in 0..self.layout.len() {
-			let line = &self.layout[y];
-			println!("...building layout line {}: {}...", y, line);
-
-			yf += 1.0;
-			let mut xf = -1.0;
-
-			for c in line.chars() {
-				match c {
-					'_' => { continue; }
-					'A' => {
-						commands.spawn((
-							Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
-							MeshMaterial3d(materials.add(self.colors.tiles_a)),
-							Transform::from_xyz(xf, 0.5, yf), // coordinate swizzle xyz to xzy - top down view
-						));
-					}
-					'B' => {
-						commands.spawn((
-							Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
-							MeshMaterial3d(materials.add(self.colors.tiles_b)),
-							Transform::from_xyz(xf, 0.5, yf), // coordinate swizzle xyz to xzy - top down view
-						));
-					}
-					'C' => {
-						commands.spawn((
-							Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
-							MeshMaterial3d(materials.add(self.colors.tiles_c)),
-							Transform::from_xyz(xf, 0.5, yf), // coordinate swizzle xyz to xzy - top down view
-						));
-					}
-					_ => {}
-				}
-				xf += 1.0;
-			}
-		}
-
-		println!("...stage setting done!");
-		self.stage_setting_data.in_progress = false;
-		*/
 	}
 }

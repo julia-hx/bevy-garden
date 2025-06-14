@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 pub struct StatePlugin;
 
@@ -73,6 +73,7 @@ fn init_gamestate() {
 
 fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>, 
 	mut game_state: ResMut<GameState>,
+	mut key_events: EventReader<KeyboardInput>,
 ) {
 	match game_state.data {
 		GameStateData::Init => {
@@ -80,10 +81,15 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 			game_state.set_data(initial_setup_data, &mut event_writer);
 		},
 		GameStateData::Setup(setup_data) => {
-			if setup_data.setup_done { game_state.set_data(GameStateData::Play, &mut event_writer); }
+			if setup_data.setup_done { game_state.set_data(GameStateData::Start, &mut event_writer); }
 		},
 		GameStateData::Start => {
-			
+			for e in key_events.read() {
+				match e.key_code {
+					KeyCode::Space => { game_state.set_data(GameStateData::Play, &mut event_writer); }
+					_ => {}
+				}
+			}
 		}, 
 		GameStateData::Play => {
 			
