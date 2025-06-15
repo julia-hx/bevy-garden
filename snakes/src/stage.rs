@@ -11,9 +11,9 @@ pub struct StagePlugin;
 
 impl Plugin for StagePlugin {
 	fn build(&self, app: &mut App) {
+		app.add_event::<StageEvent>();
 		app.add_systems(Startup, init_stage);
 		app.add_systems(Update, (read_gamestate_events, update_stage, update_spotlight).chain());
-		app.add_event::<StageEvent>();
 	}
 }
 
@@ -26,11 +26,17 @@ pub struct StageEvent {
 pub enum StageEventData {
 	Empty,
 	SetSnakeSpawnPoint(SnakeSpawnPointData),
+	SpawnSnack(SpawnSnackData),
 }
 
 #[derive(Clone, Copy)]
 pub struct SnakeSpawnPointData {
 	pub snake_id: u32,
+	pub spawn_point: Vec3,
+}
+
+#[derive(Clone, Copy)]
+pub struct SpawnSnackData {
 	pub spawn_point: Vec3,
 }
 

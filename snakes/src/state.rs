@@ -74,7 +74,8 @@ fn init_gamestate() {
 	println!("starting snakes game!");
 }
 
-fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>, 
+fn update_gamestate(
+	mut event_writer: EventWriter<GameStateEvent>, 
 	mut game_state: ResMut<GameState>,
 	mut key_events: EventReader<KeyboardInput>,
 ) {
