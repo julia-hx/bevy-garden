@@ -372,8 +372,8 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x, 0.5, data.y),
 				));
-				let origin_data = SnakeSpawnPointData{ snake_id: 1, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
-				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(origin_data) });
+				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 1, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(snake_spawn_point_data) });
 			}
 			'2' => {
 				commands.spawn((
@@ -381,8 +381,8 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x, 0.5, data.y),
 				));
-				let origin_data = SnakeSpawnPointData{ snake_id: 2, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
-				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(origin_data) });
+				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 2, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(snake_spawn_point_data) });
 			}
 			'3' => {
 				commands.spawn((
@@ -390,8 +390,17 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x, 0.5, data.y),
 				));
-				let origin_data = SnakeSpawnPointData{ snake_id: 3, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
-				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(origin_data) });
+				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 3, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(snake_spawn_point_data) });
+			}
+			'*' => {
+				commands.spawn((
+					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
+					MeshMaterial3d(materials.add(self.colors.tiles_a)),
+					Transform::from_xyz(data.x, 0.5, data.y),
+				));
+				let spawn_snack_data = SpawnSnackData{ spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SpawnSnack(spawn_snack_data) });
 			}
 			_ => {}
 		}
