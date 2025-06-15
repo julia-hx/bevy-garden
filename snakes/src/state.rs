@@ -97,8 +97,10 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 				}
 			}
 		}, 
-		GameStateData::Play (game_data) => {
-			
+		GameStateData::Play (play_data) => {
+			if play_data.score >= play_data.goal {
+				println!("Cleared stage {}!", play_data.stage_id);
+			}
 		},
 		GameStateData::Win => {
 			

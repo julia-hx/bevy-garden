@@ -65,8 +65,6 @@ struct StageColors {
 	tiles_b: Color,
 	tiles_c: Color,
 	clear_color: Color,
-	snacks: Color,
-	ui: Color
 }
 
 impl StageColors {
@@ -76,8 +74,6 @@ impl StageColors {
 			tiles_b: Color::srgb_u8(60, 60, 60),
 			tiles_c: Color::srgb_u8(20, 20, 20),
 			clear_color: Color::srgb(0.1, 0.1, 0.12),
-			snacks: Color::srgb_u8(220, 220, 60),
-			ui: Color::WHITE,
 		}
 	}
 }
