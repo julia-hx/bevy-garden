@@ -157,7 +157,7 @@ fn read_gamestate_events(
 					transform.translation = Vec3::new(snake.spawn_point.x, SNAKE_Y, snake.spawn_point.z);
 				}
 			},
-			GameStateData::Play => {},
+			GameStateData::Play (play_data) => {},
 			GameStateData::Win => {},
 			GameStateData::Death => {},
 		}
@@ -173,7 +173,7 @@ fn read_stage_events (
 	
 	for e in stage_events.read() {
 		match e.data {
-			StageEventData::SetSnakeOrigin(_origin_data) => {
+			StageEventData::SetSnakeSpawnPoint(_spawnpoint_data) => {
 				event_received = true;
 				event_data = e.data.clone();
 			}
@@ -185,9 +185,9 @@ fn read_stage_events (
 
 	for mut snake in query {
 		match event_data {
-			StageEventData::SetSnakeOrigin(origin_data) => {
-				if origin_data.snake_id != snake.id { continue; }
-				snake.spawn_point = origin_data.spawn_point;
+			StageEventData::SetSnakeSpawnPoint(spawn_point_data) => {
+				if spawn_point_data.snake_id != snake.id { continue; }
+				snake.spawn_point = spawn_point_data.spawn_point;
 			}
 			_ => {}
 		}
@@ -214,7 +214,7 @@ fn move_snakes(
 	query: Query<(&mut Snake, &mut Transform)>,
 ) {
 	match &game_state.data {
-		GameStateData::Play => {}
+		GameStateData::Play (_play_data) => {}
 		_ => { return; }
 	}
 

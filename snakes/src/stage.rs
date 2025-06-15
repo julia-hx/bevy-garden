@@ -25,11 +25,11 @@ pub struct StageEvent {
 #[derive(Clone)]
 pub enum StageEventData {
 	Empty,
-	SetSnakeOrigin(SnakeOriginData),
+	SetSnakeSpawnPoint(SnakeSpawnPointData),
 }
 
 #[derive(Clone, Copy)]
-pub struct SnakeOriginData {
+pub struct SnakeSpawnPointData {
 	pub snake_id: u32,
 	pub spawn_point: Vec3,
 }
@@ -169,7 +169,7 @@ fn read_gamestate_events(
 				GameStateData::Start => {
 					
 				},
-				GameStateData::Play => {
+				GameStateData::Play (play_data)=> {
 					
 				},
 				GameStateData::Win => {
@@ -224,7 +224,7 @@ fn update_stage(
 				transform.look_at(Vec3::new(stage.camera_translation.x, 0.0, stage.camera_translation.z), -Vec3::Z);
 				clear_color.0 = stage.colors.clear_color;
 			}
-			GameStateData::Play => {
+			GameStateData::Play (play_data) => {
 				
 			}
 			_=> { return; }
@@ -370,8 +370,8 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x, 0.5, data.y),
 				));
-				let origin_data = SnakeOriginData{ snake_id: 1, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
-				event_writer.write(StageEvent { data: StageEventData::SetSnakeOrigin(origin_data) });
+				let origin_data = SnakeSpawnPointData{ snake_id: 1, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(origin_data) });
 			}
 			'2' => {
 				commands.spawn((
@@ -379,8 +379,8 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x, 0.5, data.y),
 				));
-				let origin_data = SnakeOriginData{ snake_id: 2, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
-				event_writer.write(StageEvent { data: StageEventData::SetSnakeOrigin(origin_data) });
+				let origin_data = SnakeSpawnPointData{ snake_id: 2, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(origin_data) });
 			}
 			'3' => {
 				commands.spawn((
@@ -388,8 +388,8 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x, 0.5, data.y),
 				));
-				let origin_data = SnakeOriginData{ snake_id: 3, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
-				event_writer.write(StageEvent { data: StageEventData::SetSnakeOrigin(origin_data) });
+				let origin_data = SnakeSpawnPointData{ snake_id: 3, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(origin_data) });
 			}
 			_ => {}
 		}

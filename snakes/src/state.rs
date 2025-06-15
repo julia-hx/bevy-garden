@@ -1,5 +1,7 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
+use crate::stage;
+
 pub struct StatePlugin;
 
 impl Plugin for StatePlugin {
@@ -17,7 +19,7 @@ pub enum GameStateData {
 	Init,
 	Setup(SetupData),
 	Start,
-	Play,
+	Play(PlayData),
 	Win,
 	Death,
 }
@@ -36,6 +38,7 @@ pub struct GameStateEvent {
 
 #[derive(Resource, Default)]
 pub struct GameState {
+	pub stage: u32,
 	pub data: GameStateData,
 }
 
@@ -51,8 +54,8 @@ impl GameState {
 			GameStateData::Start => {
 				println!("game state: Start");
 			},
-			GameStateData::Play => {
-				println!("game state: Play");
+			GameStateData::Play (play_data) => {
+				println!("game state: Play stage {} goal {}", play_data.stage_id, play_data.goal);
 			},
 			GameStateData::Win => {
 				println!("game state: Win");
@@ -75,9 +78,12 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 	mut game_state: ResMut<GameState>,
 	mut key_events: EventReader<KeyboardInput>,
 ) {
+	let stage = game_state.stage;
+	
 	match game_state.data {
 		GameStateData::Init => {
-			let initial_setup_data = GameStateData::Setup(SetupData::new());
+			game_state.stage = 0;
+			let initial_setup_data = GameStateData::Setup(SetupData::new(stage));
 			game_state.set_data(initial_setup_data, &mut event_writer);
 		},
 		GameStateData::Setup(setup_data) => {
@@ -86,12 +92,12 @@ fn update_gamestate(mut event_writer: EventWriter<GameStateEvent>,
 		GameStateData::Start => {
 			for e in key_events.read() {
 				match e.key_code {
-					KeyCode::Space => { game_state.set_data(GameStateData::Play, &mut event_writer); }
+					KeyCode::Space => { game_state.set_data(GameStateData::Play(PlayData::new(stage)), &mut event_writer); }
 					_ => {}
 				}
 			}
 		}, 
-		GameStateData::Play => {
+		GameStateData::Play (game_data) => {
 			
 		},
 		GameStateData::Win => {
@@ -113,13 +119,30 @@ pub struct SetupData {
 }
 
 impl SetupData {
-	fn new() -> Self {
+	fn new(stage_id: u32) -> Self {
 		Self {
-			stage_id: 0,
+			stage_id: stage_id,
 			move_speed: 1.0,
 			spotlight_translation: Vec3::new(6.0, 8.0, 4.0),
 			spotlight_intensity_multiplier: 1.0,
 			setup_done: false,
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct PlayData {
+	pub stage_id: u32,
+	pub goal: u32,
+	pub score: u32,
+}
+
+impl PlayData {
+	fn new(stage_id: u32) -> Self {
+		Self {
+			stage_id: stage_id,
+			goal: 3,
+			score: 0,
 		}
 	}
 }
