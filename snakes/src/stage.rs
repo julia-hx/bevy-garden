@@ -88,10 +88,8 @@ impl StageColors {
 struct StageSettingData {
 	interval: f32,
 	current_line: String,
-	progress_x: usize,
-	progress_y: usize,
-	x: f32,
-	y: f32,
+	x: usize,
+	y: usize,
 	tile_placed_time: f32,
 	in_progress: bool,
 }
@@ -101,10 +99,8 @@ impl StageSettingData {
 		Self {
 			interval: DEFAULT_STAGE_SETTING_INTERVAL,
 			current_line: String::from("_"),
-			progress_x: 0,
-			progress_y: 0,
-			x: 0.0,
-			y: 0.0,
+			x: 0,
+			y: 0,
 			tile_placed_time: 0.0,
 			in_progress: false,
 		}
@@ -146,41 +142,36 @@ fn read_gamestate_events(
 	mut gamestate_events: EventReader<GameStateEvent>,
 	mut query: Query<&mut Stage>
 ) {
-	let mut event_received = false;
-	let mut event_data: &GameStateData = &GameStateData::Init;
-	
-	for e in gamestate_events.read() {
-		event_received = true;
+	let event_data: &GameStateData;
+
+	if let Some(e) = gamestate_events.read().next() {
 		event_data = &e.data;
-		break;
-	}
+	} else { return; }
 
 	for mut stage in &mut query {
-		if event_received {
-			match event_data {
-				GameStateData::Init => {},
-				GameStateData::Setup (setup_data) => {
-					stage.load_layout(setup_data.stage_id);
-					stage.calculate_camera_translation();
-					stage.stage_setting_data = StageSettingData::new();
-					stage.stage_setting_data.in_progress = true;
-					stage.stage_setting_data.current_line = stage.layout[0].clone();
-					println!("stage: setting stage {}", stage.id);
-					break;
-				},
-				GameStateData::Start => {
-					
-				},
-				GameStateData::Play (play_data)=> {
-					
-				},
-				GameStateData::Win => {
-					
-				},
-				GameStateData::Death => {
-					
-				},
-			}
+		match event_data {
+			GameStateData::Init => {},
+			GameStateData::Setup (setup_data) => {
+				stage.load_layout(setup_data.stage_id);
+				stage.calculate_camera_translation();
+				stage.stage_setting_data = StageSettingData::new();
+				stage.stage_setting_data.in_progress = true;
+				stage.stage_setting_data.current_line = stage.layout[0].clone();
+				println!("stage: setting stage {}", stage.id);
+				break;
+			},
+			GameStateData::Start => {
+				
+			},
+			GameStateData::Play (play_data)=> {
+				
+			},
+			GameStateData::Win => {
+				
+			},
+			GameStateData::Death => {
+				
+			},
 		}
 	}
 }
@@ -300,21 +291,8 @@ impl Stage {
 	fn calculate_camera_translation(&mut self) {
 		if self.layout.len() == 0 { self.camera_translation = Vec3::ZERO; }
 		
-		let mut x: f32 = 0.0;
-		let mut z: f32 = 0.0;
-		let mut line_length_set = false;
-		
-		// roundabout way of not doing unsafe casting
-		for _i in 0..self.height {
-			z += 1.0;
-			if !line_length_set {
-				for _j in 0..self.width {
-					x += 1.0;
-				}
-				line_length_set = true;
-			}
-		}
-
+		let mut x = self.width as f32;
+		let mut z: f32 = self.height as f32;
 		let y = (z + x * 0.5) * 1.4;
 		z = z / 2.0 - 0.5;
 		x = x / 2.0 - 0.5;
@@ -341,7 +319,7 @@ impl Stage {
 		
 		// set tile at current x and y
 		let c = data.current_line.chars()
-			.nth(data.progress_x)
+			.nth(data.x)
 			.unwrap_or('_');
 
 		match c {
@@ -349,72 +327,69 @@ impl Stage {
 				commands.spawn((
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
-					Transform::from_xyz(data.x, 0.5, data.y), // coordinate swizzle xyz to xzy - top down view
+					Transform::from_xyz(data.x as f32, 0.5, data.y as f32), // coordinate swizzle xyz to xzy - top down view
 				));
 			}
 			'B' => {
 				commands.spawn((
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_b)),
-					Transform::from_xyz(data.x, 0.5, data.y),
+					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
 			}
 			'C' => {
 				commands.spawn((
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_c)),
-					Transform::from_xyz(data.x, 0.5, data.y),
+					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
 			}
 			'1' => {
 				commands.spawn((
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
-					Transform::from_xyz(data.x, 0.5, data.y),
+					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
-				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 1, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 1, spawn_point: Vec3::new(data.x as f32, 0.0, data.y as f32) }; // y will be overriden
 				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(snake_spawn_point_data) });
 			}
 			'2' => {
 				commands.spawn((
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
-					Transform::from_xyz(data.x, 0.5, data.y),
+					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
-				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 2, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 2, spawn_point: Vec3::new(data.x as f32, 0.0, data.y as f32) }; // y will be overriden
 				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(snake_spawn_point_data) });
 			}
 			'3' => {
 				commands.spawn((
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
-					Transform::from_xyz(data.x, 0.5, data.y),
+					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
-				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 3, spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 3, spawn_point: Vec3::new(data.x as f32, 0.0, data.y as f32) }; // y will be overriden
 				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(snake_spawn_point_data) });
 			}
 			'*' => {
 				commands.spawn((
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
-					Transform::from_xyz(data.x, 0.5, data.y),
+					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
-				let spawn_snack_data = SpawnSnackData{ spawn_point: Vec3::new(data.x, 0.0, data.y) }; // y will be overriden
+				let spawn_snack_data = SpawnSnackData{ spawn_point: Vec3::new(data.x as f32, 0.0, data.y as f32) }; // y will be overriden
 				event_writer.write(StageEvent { data: StageEventData::SpawnSnack(spawn_snack_data) });
 			}
 			_ => {}
 		}
 
 		// tick x and y
-		if data.progress_x < self.width - 1 { // move through line
-			data.progress_x += 1;
-			data.x += 1.0;
-		} else if data.progress_y < self.height - 1 { // get next line
-			data.progress_x = 0;
-			data.x = 0.0;
-			data.progress_y += 1;
-			data.y += 1.0;
-			data.current_line = self.layout[data.progress_y].clone();
+		if data.x < self.width - 1 { // move through line
+			data.x += 1;
+		} else if data.y < self.height - 1 { // get next line
+			data.x = 0;
+			data.y += 1;
+			data.current_line = self.layout[data.y].clone();
 		} else { // done!
 			data.in_progress = false; 
 		}

@@ -2,7 +2,7 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use crate::state::{ GameState, GameStateData, GameStateEvent };
 use crate::stage::{ StageEvent, StageEventData };
 
-const HEAD_SIZE: f32 = 1.0;
+const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_Y: f32 = 1.4;
 const DEFAULT_MOVE_INTERVAL: f32 = 0.6;
 const HIDDEN_TRANSLATION: Vec3 = Vec3::new(1_000.0, 1_000.0, 1_000.0);
@@ -96,7 +96,7 @@ fn init_snakes(
 			KeyCode::ArrowLeft,
 			KeyCode::ArrowRight),
 		Transform::from_xyz(HIDDEN_TRANSLATION.x, HIDDEN_TRANSLATION.y, HIDDEN_TRANSLATION.z),
-		Mesh3d(meshes.add(Cuboid::new(HEAD_SIZE, HEAD_SIZE, HEAD_SIZE))),
+		Mesh3d(meshes.add(Cuboid::new(SNAKE_HEAD_SIZE.x, SNAKE_HEAD_SIZE.y, SNAKE_HEAD_SIZE.z))),
 		MeshMaterial3d(materials.add(Color::srgb_u8(80, 220, 220))),
 	));
 
@@ -109,7 +109,7 @@ fn init_snakes(
 			KeyCode::ArrowLeft,
 			KeyCode::ArrowRight),
 		Transform::from_xyz(HIDDEN_TRANSLATION.x, HIDDEN_TRANSLATION.y, HIDDEN_TRANSLATION.z),
-		Mesh3d(meshes.add(Cuboid::new(HEAD_SIZE, HEAD_SIZE, HEAD_SIZE))),
+		Mesh3d(meshes.add(Cuboid::new(SNAKE_HEAD_SIZE.x, SNAKE_HEAD_SIZE.y, SNAKE_HEAD_SIZE.z))),
 		MeshMaterial3d(materials.add(Color::srgb_u8(80, 220, 220))),
 	));
 
@@ -122,7 +122,7 @@ fn init_snakes(
 			KeyCode::ArrowLeft,
 			KeyCode::ArrowRight),
 		Transform::from_xyz(HIDDEN_TRANSLATION.x, HIDDEN_TRANSLATION.y, HIDDEN_TRANSLATION.z),
-		Mesh3d(meshes.add(Cuboid::new(HEAD_SIZE, HEAD_SIZE, HEAD_SIZE))),
+		Mesh3d(meshes.add(Cuboid::new(SNAKE_HEAD_SIZE.x, SNAKE_HEAD_SIZE.y, SNAKE_HEAD_SIZE.z))),
 		MeshMaterial3d(materials.add(Color::srgb_u8(80, 220, 220))),
 	));
 }
@@ -131,16 +131,11 @@ fn read_gamestate_events(
 	mut gamestate_events: EventReader<GameStateEvent>,
 	mut query: Query<(&mut Snake, &mut Transform)>,
 ) {
-	let mut event_received = false;
-	let mut gamestate_data = GameStateData::Init;
+	let gamestate_data;
 	
-	for e in gamestate_events.read() {
-		event_received = true;
+	if let Some(e) = gamestate_events.read().next() {
 		gamestate_data = e.data.clone();
-		break;
-	}
-
-	if !event_received { return; }
+	} else { return; }
 
 	for (mut snake, mut transform) in &mut query {
 		match gamestate_data {
@@ -238,10 +233,10 @@ fn move_snakes(
 
 fn is_opposite_direction(a: &Direction, b: &Direction) -> bool {
 	match (a, b) {
-		(Direction::Up, Direction::Down) => { return true; }
-		(Direction::Down, Direction::Up) => { return true; }
-		(Direction::Left, Direction::Right) => { return true; }
-		(Direction::Right, Direction::Left) => { return true; }
-		(_, _) => { return false; }
+		(Direction::Up, Direction::Down) => { true }
+		(Direction::Down, Direction::Up) => { true }
+		(Direction::Left, Direction::Right) => { true }
+		(Direction::Right, Direction::Left) => { true }
+		(_, _) => { false }
 	}
 }
