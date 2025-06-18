@@ -1,6 +1,5 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-
-use crate::stage;
+use crate::stage::StageCoordinate;
 
 pub struct StatePlugin;
 
@@ -33,7 +32,7 @@ pub enum GameStateData {
 
 #[derive(Event)]
 pub struct GameStateEvent {
-	pub data: GameStateData, // TODO: figure out good way to pass by ref
+	pub data: GameStateData, // TODO: pass by ref?
 }
 
 #[derive(Resource, Default)]
@@ -81,7 +80,7 @@ fn update_gamestate(
 ) {
 	let stage = game_state.stage;
 	
-	match game_state.data {
+	match &game_state.data {
 		GameStateData::Init => {
 			game_state.stage = 0;
 			let initial_setup_data = GameStateData::Setup(SetupData::new(stage));
@@ -138,6 +137,15 @@ pub struct PlayData {
 	pub stage_id: u32,
 	pub goal: u32,
 	pub score: u32,
+	pub snake1_active: bool,
+	pub snake2_active: bool,
+	pub snake3_active: bool,
+	pub snake1_coordinate: StageCoordinate,
+	pub snake2_coordinate: StageCoordinate,
+	pub snake3_coordinate: StageCoordinate,
+	pub snake1_falling: bool,
+	pub snake2_falling: bool,
+	pub snake3_falling: bool,
 }
 
 impl PlayData {
@@ -146,6 +154,15 @@ impl PlayData {
 			stage_id: stage_id,
 			goal: 3,
 			score: 0,
+			snake1_active: false,
+			snake2_active: false,
+			snake3_active: false,
+			snake1_coordinate: StageCoordinate::new(0, 0),
+			snake2_coordinate: StageCoordinate::new(0, 0),
+			snake3_coordinate: StageCoordinate::new(0, 0),
+			snake1_falling: false,
+			snake2_falling: false,
+			snake3_falling: false,
 		}
 	}
 }

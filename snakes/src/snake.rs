@@ -1,11 +1,11 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use crate::state::{ GameState, GameStateData, GameStateEvent };
-use crate::stage::{ StageEvent, StageEventData };
+use crate::stage::{ StageCoordinate, StageEvent, StageEventData };
 
 const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_Y: f32 = 1.4;
 const DEFAULT_MOVE_INTERVAL: f32 = 0.6;
-const HIDDEN_TRANSLATION: Vec3 = Vec3::new(1_000.0, 1_000.0, 1_000.0);
+const HIDDEN_COORDINATE: StageCoordinate = StageCoordinate::new(1000, 1000);
 
 pub struct SnakePlugin;
 
@@ -22,11 +22,14 @@ impl Plugin for SnakePlugin {
 pub struct Snake {
 	pub id: u32,
 	pub direction: Direction,
+	pub falling: bool,
+	pub fall_duration: u32,
 	pub segments: Vec<Vec3>,
 	last_move_time: f32,
 	move_interval: f32,
-	spawn_point: Vec3,
+	stage_coordinate: StageCoordinate,
 	pub activated: bool,
+	pub input_received: bool,
 }
 
 #[derive(Component)]
@@ -50,11 +53,14 @@ impl Snake {
 		Self {
 			id: id,
 			direction: Direction::Up,
+			falling: false,
+			fall_duration: 0,
 			segments: vec![],
 			last_move_time: 0.0,
 			move_interval: 1.0,
-			spawn_point: HIDDEN_TRANSLATION,
+			stage_coordinate: HIDDEN_COORDINATE,
 			activated: activated,
+			input_received: false,
 		}
 	}
 
@@ -95,7 +101,7 @@ fn init_snakes(
 			KeyCode::ArrowDown,
 			KeyCode::ArrowLeft,
 			KeyCode::ArrowRight),
-		Transform::from_xyz(HIDDEN_TRANSLATION.x, HIDDEN_TRANSLATION.y, HIDDEN_TRANSLATION.z),
+		Transform::from_xyz(HIDDEN_COORDINATE.x as f32, 0.0, HIDDEN_COORDINATE.y as f32),
 		Mesh3d(meshes.add(Cuboid::new(SNAKE_HEAD_SIZE.x, SNAKE_HEAD_SIZE.y, SNAKE_HEAD_SIZE.z))),
 		MeshMaterial3d(materials.add(Color::srgb_u8(80, 220, 220))),
 	));
@@ -104,11 +110,11 @@ fn init_snakes(
 		Snake::new(2, false),
 		Direction::Up,
 		InputMapping::new(
-			KeyCode::ArrowUp,
-			KeyCode::ArrowDown,
-			KeyCode::ArrowLeft,
-			KeyCode::ArrowRight),
-		Transform::from_xyz(HIDDEN_TRANSLATION.x, HIDDEN_TRANSLATION.y, HIDDEN_TRANSLATION.z),
+			KeyCode::KeyW,
+			KeyCode::KeyS,
+			KeyCode::KeyA,
+			KeyCode::KeyD),
+		Transform::from_xyz(HIDDEN_COORDINATE.x as f32, 0.0, HIDDEN_COORDINATE.y as f32),
 		Mesh3d(meshes.add(Cuboid::new(SNAKE_HEAD_SIZE.x, SNAKE_HEAD_SIZE.y, SNAKE_HEAD_SIZE.z))),
 		MeshMaterial3d(materials.add(Color::srgb_u8(80, 220, 220))),
 	));
@@ -117,11 +123,11 @@ fn init_snakes(
 		Snake::new(3, false),
 		Direction::Up,
 		InputMapping::new(
-			KeyCode::ArrowUp,
-			KeyCode::ArrowDown,
-			KeyCode::ArrowLeft,
-			KeyCode::ArrowRight),
-		Transform::from_xyz(HIDDEN_TRANSLATION.x, HIDDEN_TRANSLATION.y, HIDDEN_TRANSLATION.z),
+			KeyCode::KeyI,
+			KeyCode::KeyK,
+			KeyCode::KeyJ,
+			KeyCode::KeyL),
+		Transform::from_xyz(HIDDEN_COORDINATE.x as f32, 0.0, HIDDEN_COORDINATE.y as f32),
 		Mesh3d(meshes.add(Cuboid::new(SNAKE_HEAD_SIZE.x, SNAKE_HEAD_SIZE.y, SNAKE_HEAD_SIZE.z))),
 		MeshMaterial3d(materials.add(Color::srgb_u8(80, 220, 220))),
 	));
@@ -146,13 +152,17 @@ fn read_gamestate_events(
 				} else {
 					snake.move_interval = DEFAULT_MOVE_INTERVAL;
 				}
+				snake.falling = false;
+				snake.fall_duration = 0;
 			},
 			GameStateData::Start => {
 				if snake.activated {
-					transform.translation = Vec3::new(snake.spawn_point.x, SNAKE_Y, snake.spawn_point.z);
+					transform.translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
 				}
 			},
-			GameStateData::Play (play_data) => {},
+			GameStateData::Play (play_data) => {
+				
+			},
 			GameStateData::Win => {},
 			GameStateData::Death => {},
 		}
@@ -163,26 +173,28 @@ fn read_stage_events (
 	mut stage_events: EventReader<StageEvent>,
 	query: Query<&mut Snake>,
 ) {
-	let mut event_received = false;
-	let mut event_data = StageEventData::Empty;
+	let event_data;
 	
-	for e in stage_events.read() {
-		match e.data {
-			StageEventData::SetSnakeSpawnPoint(_spawnpoint_data) => {
-				event_received = true;
-				event_data = e.data.clone();
-			}
-			_ => {}
-		}
-	}
-	
-	if !event_received { return; }
+	if let Some (e) = stage_events.read().next() {
+		event_data = e.data.clone();
+	} else { return; }
 
 	for mut snake in query {
 		match event_data {
 			StageEventData::SetSnakeSpawnPoint(spawn_point_data) => {
 				if spawn_point_data.snake_id != snake.id { continue; }
-				snake.spawn_point = spawn_point_data.spawn_point;
+				snake.stage_coordinate = spawn_point_data.spawn_point;
+			}
+			StageEventData::SnackEaten(snake_id) => {
+				if snake_id == snake.id {
+					println!("snake {} had a lil snack!", snake_id);
+				}
+			}
+			StageEventData::SnakeFalling(snake_id) => {
+				if snake_id == snake.id {
+					snake.falling = true;
+					println!("snake {} is falling!", snake_id);
+				}
 			}
 			_ => {}
 		}
@@ -195,39 +207,70 @@ fn read_input(
 ) {	
 	for e in key_events.read() {
 		for (mut snake, input_mapping) in &mut query {
-			if e.key_code == input_mapping.up { snake.set_direction(Direction::Up); }
-			else if e.key_code == input_mapping.down { snake.set_direction(Direction::Down); }
-			else if e.key_code == input_mapping.left { snake.set_direction(Direction::Left); }
-			else if e.key_code == input_mapping.right { snake.set_direction(Direction::Right); }
+			if e.key_code == input_mapping.up { snake.set_direction(Direction::Up); snake.input_received = true; }
+			else if e.key_code == input_mapping.down { snake.set_direction(Direction::Down); snake.input_received = true; }
+			else if e.key_code == input_mapping.left { snake.set_direction(Direction::Left); snake.input_received = true; }
+			else if e.key_code == input_mapping.right { snake.set_direction(Direction::Right); snake.input_received = true; }
 		}
 	}
 } 
 
 fn move_snakes(
 	time: Res<Time>,
-	game_state: Res<GameState>,
+	mut game_state: ResMut<GameState>,
 	query: Query<(&mut Snake, &mut Transform)>,
 ) {
-	match &game_state.data {
-		GameStateData::Play (_play_data) => {}
-		_ => { return; }
-	}
-
-	for(mut snake, mut transform) in query {
-		if snake.last_move_time + snake.move_interval >= time.elapsed_secs() { continue; }
-
-		let mut x = transform.translation.x;
-		let mut z = transform.translation.z;
-		
-		match snake.direction {
-			Direction::Up => { z -= 1.0; }
-			Direction::Down => { z += 1.0; }
-			Direction::Left => { x -= 1.0; }
-			Direction::Right => { x += 1.0; }
+	match &mut game_state.data {
+		GameStateData::Start => {
+			for(mut snake, mut transform) in query {
+				if !snake.activated && snake.input_received { 
+					snake.activated = true;
+					transform.translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
+				}
+			}
 		}
+		GameStateData::Play (play_data) => {
+			for(mut snake, mut transform) in query {
+				// no so fond of this...
+				match snake.id {
+					1 => { play_data.snake1_active = snake.activated; play_data.snake1_falling = snake.falling; }
+					2 => { play_data.snake2_active = snake.activated; play_data.snake2_falling = snake.falling; }
+					3 => { play_data.snake3_active = snake.activated; play_data.snake3_falling = snake.falling; }
+					_=> ()
+				}
 
-		transform.translation = Vec3::new(x, SNAKE_Y, z);
-		snake.last_move_time = time.elapsed_secs();
+				if !snake.activated { continue; }
+				if snake.last_move_time + snake.move_interval >= time.elapsed_secs() { continue; }
+				
+				let next_translation: Vec3;
+
+				if snake.falling {
+					snake.fall_duration += 1;
+					next_translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y - snake.fall_duration as f32, snake.stage_coordinate.y as f32);
+				}	
+				else {
+					match snake.direction {
+						Direction::Up => { snake.stage_coordinate.y -= 1; }
+						Direction::Down => { snake.stage_coordinate.y += 1; }
+						Direction::Left => { snake.stage_coordinate.x -= 1; }
+						Direction::Right => { snake.stage_coordinate.x += 1; }
+					}
+
+					match snake.id {
+						1 => { play_data.snake1_coordinate = snake.stage_coordinate; }
+						2 => { play_data.snake2_coordinate = snake.stage_coordinate; }
+						3 => { play_data.snake3_coordinate = snake.stage_coordinate; }
+						_=> ()
+					}
+
+					next_translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
+				}
+				
+				transform.translation = next_translation;
+				snake.last_move_time = time.elapsed_secs();
+			}
+		}
+		_ => { () }
 	}
 }
 

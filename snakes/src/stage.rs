@@ -26,18 +26,15 @@ pub struct StageEvent {
 pub enum StageEventData {
 	Empty,
 	SetSnakeSpawnPoint(SnakeSpawnPointData),
-	SpawnSnack(SpawnSnackData),
+	SpawnSnack(StageCoordinate), // coordinate
+	SnackEaten(u32), // snake id
+	SnakeFalling(u32), // snake id
 }
 
 #[derive(Clone, Copy)]
 pub struct SnakeSpawnPointData {
 	pub snake_id: u32,
-	pub spawn_point: Vec3,
-}
-
-#[derive(Clone, Copy)]
-pub struct SpawnSnackData {
-	pub spawn_point: Vec3,
+	pub spawn_point: StageCoordinate,
 }
 
 #[derive(Bundle)]
@@ -63,6 +60,8 @@ struct Stage {
 	stage_setting_data: StageSettingData,
 	camera_translation: Vec3,
 	colors: StageColors,
+	walkable: StageWalkableMask,
+	snack_coordinate: StageCoordinate,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -105,6 +104,29 @@ impl StageSettingData {
 			in_progress: false,
 		}
 	}
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct StageCoordinate {
+	pub x: i32,
+	pub y: i32,
+}
+
+impl StageCoordinate {
+	pub const fn new(x: i32, y: i32) -> Self { Self {x, y} }
+	pub fn equals(&self, other: &StageCoordinate) -> bool {
+		self.x == other.x && self.y == other.y
+	}
+}
+
+#[derive(Debug, Clone)]
+struct StageWalkableRow {
+	tiles: Vec<bool>,
+}
+
+#[derive(Debug, Clone)]
+struct StageWalkableMask {
+	rows: Vec<StageWalkableRow>,
 }
 
 #[derive(Component)]
@@ -153,15 +175,19 @@ fn read_gamestate_events(
 			GameStateData::Init => {},
 			GameStateData::Setup (setup_data) => {
 				stage.load_layout(setup_data.stage_id);
+				stage.calculate_height_and_width_from_layout();
 				stage.calculate_camera_translation();
+				stage.init_walkable_mask();
 				stage.stage_setting_data = StageSettingData::new();
 				stage.stage_setting_data.in_progress = true;
 				stage.stage_setting_data.current_line = stage.layout[0].clone();
+				
 				println!("stage: setting stage {}", stage.id);
 				break;
 			},
 			GameStateData::Start => {
-				
+				stage.print_walkable_mask();
+				break;
 			},
 			GameStateData::Play (play_data)=> {
 				
@@ -177,12 +203,12 @@ fn read_gamestate_events(
 }
 
 fn update_stage(
-	event_writer: EventWriter<StageEvent>,
+	mut event_writer: EventWriter<StageEvent>,
 	mut game_state: ResMut<GameState>,
 	time: Res<Time>,
-	commands: Commands,
-	meshes: ResMut<Assets<Mesh>>,
-	materials: ResMut<Assets<StandardMaterial>>,
+	mut commands: Commands,
+	mut meshes: ResMut<Assets<Mesh>>,
+	mut materials: ResMut<Assets<StandardMaterial>>,
 	mut clear_color: ResMut<ClearColor>,
 	query: Query<(&mut Stage, &mut Transform)>
 ) {
@@ -203,10 +229,13 @@ fn update_stage(
 				let cc = clear_color.0.mix(&stage.colors.clear_color, time.delta_secs());
 				clear_color.0 = cc;
 				// tick stage setting
-				stage.update_set_stage(event_writer, commands, meshes, materials, time.elapsed_secs());
+				stage.update_set_stage(&mut event_writer, &mut commands, &mut meshes, &mut materials, time.elapsed_secs());
 
 				if !stage.stage_setting_data.in_progress {
-					setup_data.setup_done = true; // could be a fancy event but this works as well!
+					setup_data.setup_done = true; // don't cross the event streams, apparantly!
+					// accessing state data directly causes less bugs than writing and reading events in opposite direction between stage / state / snake.
+					// state -> stage & snake / stage -> snake works.
+					// want to try a single event stream with many different types in some other garden project.
 				}
 				
 				return;
@@ -216,11 +245,40 @@ fn update_stage(
 				transform.translation = stage.camera_translation;
 				transform.look_at(Vec3::new(stage.camera_translation.x, 0.0, stage.camera_translation.z), -Vec3::Z);
 				clear_color.0 = stage.colors.clear_color;
+
+				return;
 			}
 			GameStateData::Play (play_data) => {
-				
+				let mut snake_data: Vec<(u32, &StageCoordinate)> = vec![];
+				if play_data.snake1_active && !play_data.snake1_falling { snake_data.push((1, &play_data.snake1_coordinate)) };
+				if play_data.snake2_active && !play_data.snake2_falling { snake_data.push((2, &play_data.snake2_coordinate)) };
+				if play_data.snake3_active && !play_data.snake3_falling { snake_data.push((3, &play_data.snake3_coordinate)) };
+
+				for (snake_id, snake_coordinate) in snake_data {
+					// falling snakes?
+					if !stage.check_walkable_tile(snake_coordinate) {
+						// check if already falling
+						match snake_id {
+							1 => { if play_data.snake1_falling { continue; } }
+							2 => { if play_data.snake2_falling { continue; } }
+							3 => { if play_data.snake3_falling { continue; } }
+						    _=> ()
+						}
+						event_writer.write(StageEvent { data: StageEventData::SnakeFalling(snake_id) });
+						continue;
+					}
+					// snack eaten?
+					if snake_coordinate.equals(&stage.snack_coordinate) {
+						play_data.score += 1;
+						println!("... score is now {} of {}", play_data.score, play_data.goal);
+						event_writer.write(StageEvent { data: StageEventData::SnackEaten(snake_id) });
+						stage.spawn_next_snack(&mut event_writer, &mut commands, &mut meshes, &mut materials);
+						break;
+					}
+				}
+				return;
 			}
-			_=> { return; }
+			_=> {}
 		}
 	}
 }
@@ -256,13 +314,15 @@ fn update_spotlight(
 impl Stage {
 	fn new() -> Self {
 		Self { 
-			id: 0, // would be better to init to -1 but u32 for now
+			id: 0,
 			layout: vec![],
 			stage_setting_data: StageSettingData::new(),
 			width: 0,
 			height: 0,
 			camera_translation: Vec3::new(0.0, 0.0, 0.0),
 			colors: StageColors::new(),
+			walkable: StageWalkableMask { rows: vec![] },
+			snack_coordinate: StageCoordinate::new(0, 0),
 		}
 	}
 
@@ -274,7 +334,7 @@ impl Stage {
 		let path = format!("{}{}.txt", LAYOUT_FILEPATH, stage_id);
 		let layout = fs::read_to_string(path).expect("level layout {stage_id} not found!");
 		
-		println!("stage: loaded layout {}:\n{}", stage_id, layout);
+		println!("stage loaded layout {}:\n{}", stage_id, layout);
 		// TODO: validate layout
 		
 		self.layout = vec![];
@@ -284,9 +344,20 @@ impl Stage {
 		
 		self.height = self.layout.len();
 		self.width = self.layout[0].len();
+	}
+
+	fn calculate_height_and_width_from_layout(&mut self) {
+		if self.layout.len() == 0 {
+			self.height = 0;
+			self.width = 0;
+			return;
+		}
+		
+		self.height = self.layout.len();
+		self.width = self.layout[0].len();
 
 		println!("stage height: {} width: {}", self.height, self.width);
-	}
+	} 
 
 	fn calculate_camera_translation(&mut self) {
 		if self.layout.len() == 0 { self.camera_translation = Vec3::ZERO; }
@@ -303,14 +374,27 @@ impl Stage {
 		dbg!(self.camera_translation);
 	}
 
+	fn init_walkable_mask(&mut self) {
+		self.walkable.rows.clear();
+		
+		// create a register of walkable true/false data the size of the map layout.
+		for y in 0..self.height {
+			self.walkable.rows.push(StageWalkableRow { tiles:vec![] });
+			for _x in 0..self.width {
+				// default to walkable, will set to false where no tile is placed.
+				self.walkable.rows[y].tiles.push(true);
+			}  
+		}
+	}
+
 	// this looks a lot like it could be a system - 
 	// having access to self does make a lot of internal data 
 	// access much easier than handling refs and borrowing.
 	fn update_set_stage(&mut self,
-		mut event_writer: EventWriter<StageEvent>,
-		mut commands: Commands,
-		mut meshes: ResMut<Assets<Mesh>>,
-		mut materials: ResMut<Assets<StandardMaterial>>,
+		event_writer: &mut EventWriter<StageEvent>,
+		commands: &mut Commands,
+		meshes: &mut ResMut<Assets<Mesh>>,
+		materials: &mut ResMut<Assets<StandardMaterial>>,
 		time: f32,
 	) {
 		let data = &mut self.stage_setting_data;
@@ -350,7 +434,7 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
-				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 1, spawn_point: Vec3::new(data.x as f32, 0.0, data.y as f32) }; // y will be overriden
+				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 1, spawn_point: StageCoordinate::new(data.x as i32, data.y as i32) };
 				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(snake_spawn_point_data) });
 			}
 			'2' => {
@@ -359,7 +443,7 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
-				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 2, spawn_point: Vec3::new(data.x as f32, 0.0, data.y as f32) }; // y will be overriden
+				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 2, spawn_point: StageCoordinate::new(data.x as i32, data.y as i32) };
 				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(snake_spawn_point_data) });
 			}
 			'3' => {
@@ -368,7 +452,7 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
-				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 3, spawn_point: Vec3::new(data.x as f32, 0.0, data.y as f32) }; // y will be overriden
+				let snake_spawn_point_data = SnakeSpawnPointData{ snake_id: 3, spawn_point: StageCoordinate::new(data.x as i32, data.y as i32) };
 				event_writer.write(StageEvent { data: StageEventData::SetSnakeSpawnPoint(snake_spawn_point_data) });
 			}
 			'*' => {
@@ -377,10 +461,14 @@ impl Stage {
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
-				let spawn_snack_data = SpawnSnackData{ spawn_point: Vec3::new(data.x as f32, 0.0, data.y as f32) }; // y will be overriden
-				event_writer.write(StageEvent { data: StageEventData::SpawnSnack(spawn_snack_data) });
+				event_writer.write(StageEvent { data: StageEventData::SpawnSnack(StageCoordinate::new(data.x as i32, data.y as i32)) });
+				self.snack_coordinate.x = data.x as i32;
+				self.snack_coordinate.y = data.y as i32;
 			}
-			_ => {}
+			_ => {
+				// if no tile was placed, mark the coordinate as non-walkable:
+				self.walkable.rows[data.y].tiles[data.x] = false;
+			}
 		}
 
 		// tick x and y
@@ -400,5 +488,33 @@ impl Stage {
 			data.interval = 0.001; // tick more or less every frame for the rest
 		}
 		data.tile_placed_time = time;
+	}
+
+	fn spawn_next_snack(&mut self,
+		event_writer: &mut EventWriter<StageEvent>,
+		commands: &mut Commands,
+		meshes: &mut ResMut<Assets<Mesh>>,
+		materials: &mut ResMut<Assets<StandardMaterial>>,
+	) {
+		self.snack_coordinate = StageCoordinate::new(-100, -100);
+	}
+
+	fn print_walkable_mask(&mut self) {
+		println!("stage walkable mask:");
+		for row in &self.walkable.rows {
+			let mut print_row: String = String::new();
+			for tile in &row.tiles {
+				let c;
+				if *tile { c = '1'; } else { c = '0'; }
+				print_row.push(c);
+			}
+			println!("{print_row}");
+		}
+	}
+
+	fn check_walkable_tile(&mut self, coordinate: &StageCoordinate) -> bool {
+		if coordinate.y < 0 || coordinate.y >= self.height as i32 { return false; }
+		if coordinate.x < 0 || coordinate.x >= self.width as i32 { return false; }
+		return self.walkable.rows[coordinate.y as usize].tiles[coordinate.x as usize];
 	}
 }

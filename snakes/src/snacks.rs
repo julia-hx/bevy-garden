@@ -12,11 +12,6 @@ impl Plugin for SnacksPlugin {
 }
 
 #[derive(Component)]
-pub struct SnackBar {
-	foo: u32,
-}
-
-#[derive(Component)]
 pub struct Snack {
 	rotate_speed: f32,
 }
@@ -29,13 +24,13 @@ fn read_stage_events(
 ) {
 	for e in stage_events.read() {
 		match e.data {
-			StageEventData::SpawnSnack(spawn_data) => {
+			StageEventData::SpawnSnack(spawn_point) => {
 				println!("...spawning snack!");
 				commands.spawn((
 					Mesh3d(meshes.add(Tetrahedron::default())),
 					MeshMaterial3d(materials.add(Color::srgb_u8(220, 220, 100))),
 					Transform {
-						translation: Vec3 { x: spawn_data.spawn_point.x, y: SNACK_Y, z: spawn_data.spawn_point.z },
+						translation: Vec3 { x: spawn_point.x as f32, y: SNACK_Y, z: spawn_point.y as f32 },
 						rotation: Quat::IDENTITY,
 						scale: Vec3::new(0.6, 0.6, 0.6),
 					},
