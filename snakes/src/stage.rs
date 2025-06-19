@@ -114,19 +114,52 @@ pub struct StageCoordinate {
 
 impl StageCoordinate {
 	pub const fn new(x: i32, y: i32) -> Self { Self {x, y} }
+	
 	pub fn equals(&self, other: &StageCoordinate) -> bool {
 		self.x == other.x && self.y == other.y
 	}
 }
 
 #[derive(Debug, Clone)]
-struct StageWalkableRow {
-	tiles: Vec<bool>,
+pub struct StageWalkableRow {
+	pub tiles: Vec<bool>,
 }
 
 #[derive(Debug, Clone)]
-struct StageWalkableMask {
-	rows: Vec<StageWalkableRow>,
+pub struct StageWalkableMask {
+	pub rows: Vec<StageWalkableRow>,
+}
+
+impl StageWalkableMask {
+	pub fn new(width: usize, height: usize) -> Self {		
+		let mut s: StageWalkableMask = StageWalkableMask { rows: vec![] };
+		s.init(width, height);
+		s
+	}
+
+	pub fn init(&mut self, width: usize, height: usize) {
+		self.rows.clear();
+		// create a register of walkable true/false data the size of the map layout.
+		for y in 0..height {
+			self.rows.push(StageWalkableRow { tiles:vec![] });
+			for _x in 0..width {
+				// walkable by default.
+				self.rows[y].tiles.push(true);
+			}  
+		}
+	}
+
+	pub fn print(&self) {
+		for row in &self.rows {
+			let mut print_row: String = String::new();
+			for tile in &row.tiles {
+				let c;
+				if *tile { c = '1'; } else { c = '0'; }
+				print_row.push(c);
+			}
+			println!("{print_row}");
+		}
+	}
 }
 
 #[derive(Component)]
@@ -177,7 +210,9 @@ fn read_gamestate_events(
 				stage.load_layout(setup_data.stage_id);
 				stage.calculate_height_and_width_from_layout();
 				stage.calculate_camera_translation();
-				stage.init_walkable_mask();
+				let width = stage.width;
+				let height = stage.height;
+				stage.walkable.init(width, height);
 				stage.stage_setting_data = StageSettingData::new();
 				stage.stage_setting_data.in_progress = true;
 				stage.stage_setting_data.current_line = stage.layout[0].clone();
@@ -186,10 +221,11 @@ fn read_gamestate_events(
 				break;
 			},
 			GameStateData::Start => {
-				stage.print_walkable_mask();
+				println!("stage walkable mask:");
+				stage.walkable.print();
 				break;
 			},
-			GameStateData::Play (play_data)=> {
+			GameStateData::Play (_play_data)=> {
 				
 			},
 			GameStateData::Win => {
@@ -248,20 +284,23 @@ fn update_stage(
 
 				return;
 			}
-			GameStateData::Play (play_data) => {
-				let mut snake_data: Vec<(u32, &StageCoordinate)> = vec![];
-				if play_data.snake1_active && !play_data.snake1_falling { snake_data.push((1, &play_data.snake1_coordinate)) };
-				if play_data.snake2_active && !play_data.snake2_falling { snake_data.push((2, &play_data.snake2_coordinate)) };
-				if play_data.snake3_active && !play_data.snake3_falling { snake_data.push((3, &play_data.snake3_coordinate)) };
+			GameStateData::Play (play_data) => {				
+				let mut snake_data: Vec<(u32, &StageCoordinate, bool)> = vec![];
+				if play_data.snake1_data.active && !play_data.snake1_data.falling { snake_data.push((1, &play_data.snake1_data.coordinate, play_data.snake1_data.evaluate_move)) };
+				if play_data.snake2_data.active && !play_data.snake2_data.falling { snake_data.push((2, &play_data.snake2_data.coordinate, play_data.snake1_data.evaluate_move)) };
+				if play_data.snake3_data.active && !play_data.snake3_data.falling { snake_data.push((3, &play_data.snake3_data.coordinate, play_data.snake1_data.evaluate_move)) };
 
-				for (snake_id, snake_coordinate) in snake_data {
+				for (snake_id, snake_coordinate, evaluate_move) in snake_data {
+					// nothing to evaluate if snake hasn't moved
+					if !evaluate_move { return; }
+					
 					// falling snakes?
 					if !stage.check_walkable_tile(snake_coordinate) {
 						// check if already falling
 						match snake_id {
-							1 => { if play_data.snake1_falling { continue; } }
-							2 => { if play_data.snake2_falling { continue; } }
-							3 => { if play_data.snake3_falling { continue; } }
+							1 => { if play_data.snake1_data.falling { continue; } }
+							2 => { if play_data.snake2_data.falling { continue; } }
+							3 => { if play_data.snake3_data.falling { continue; } }
 						    _=> ()
 						}
 						event_writer.write(StageEvent { data: StageEventData::SnakeFalling(snake_id) });
@@ -274,6 +313,22 @@ fn update_stage(
 						event_writer.write(StageEvent { data: StageEventData::SnackEaten(snake_id) });
 						stage.spawn_next_snack(&mut event_writer, &mut commands, &mut meshes, &mut materials);
 						break;
+					}
+
+					match snake_id {
+						1 => {
+							play_data.snake1_data.evaluate_move = false;
+							play_data.snake1_data.walkable_mask.init(stage.width, stage.height);
+						}
+						2 => {
+							play_data.snake2_data.evaluate_move = false;
+							play_data.snake2_data.walkable_mask.init(stage.width, stage.height);
+						}
+						3 => {
+							play_data.snake3_data.evaluate_move = false;
+							play_data.snake3_data.walkable_mask.init(stage.width, stage.height);
+						}
+						_=> ()
 					}
 				}
 				return;
@@ -321,7 +376,7 @@ impl Stage {
 			height: 0,
 			camera_translation: Vec3::new(0.0, 0.0, 0.0),
 			colors: StageColors::new(),
-			walkable: StageWalkableMask { rows: vec![] },
+			walkable: StageWalkableMask::new(0, 0),
 			snack_coordinate: StageCoordinate::new(0, 0),
 		}
 	}
@@ -372,19 +427,6 @@ impl Stage {
 
 		println!("... calculated camera translation");
 		dbg!(self.camera_translation);
-	}
-
-	fn init_walkable_mask(&mut self) {
-		self.walkable.rows.clear();
-		
-		// create a register of walkable true/false data the size of the map layout.
-		for y in 0..self.height {
-			self.walkable.rows.push(StageWalkableRow { tiles:vec![] });
-			for _x in 0..self.width {
-				// default to walkable, will set to false where no tile is placed.
-				self.walkable.rows[y].tiles.push(true);
-			}  
-		}
 	}
 
 	// this looks a lot like it could be a system - 
@@ -497,19 +539,6 @@ impl Stage {
 		materials: &mut ResMut<Assets<StandardMaterial>>,
 	) {
 		self.snack_coordinate = StageCoordinate::new(-100, -100);
-	}
-
-	fn print_walkable_mask(&mut self) {
-		println!("stage walkable mask:");
-		for row in &self.walkable.rows {
-			let mut print_row: String = String::new();
-			for tile in &row.tiles {
-				let c;
-				if *tile { c = '1'; } else { c = '0'; }
-				print_row.push(c);
-			}
-			println!("{print_row}");
-		}
 	}
 
 	fn check_walkable_tile(&mut self, coordinate: &StageCoordinate) -> bool {

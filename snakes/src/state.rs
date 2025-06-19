@@ -1,5 +1,5 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-use crate::stage::StageCoordinate;
+use crate::stage::{ StageCoordinate, StageWalkableMask};
 
 pub struct StatePlugin;
 
@@ -43,18 +43,21 @@ pub struct GameState {
 
 impl GameState {
 	fn set_data(&mut self, data: GameStateData, event_writer: &mut EventWriter<GameStateEvent>) {
-		match data {
+		event_writer.write(GameStateEvent { data: data.clone() });
+		self.data = data;
+
+		match &self.data {
 			GameStateData::Init => {
 				println!("game state: Init");
 			}
 			GameStateData::Setup (setup_data) => {
-				println!("game state: Setup stage {}", setup_data.stage_id);
+				println!("game state: Setup stage {}", &setup_data.stage_id);
 			},
 			GameStateData::Start => {
 				println!("game state: Start");
 			},
 			GameStateData::Play (play_data) => {
-				println!("game state: Play stage {} goal {}", play_data.stage_id, play_data.goal);
+				println!("game state: Play stage {} goal {}", &play_data.stage_id, &play_data.goal);
 			},
 			GameStateData::Win => {
 				println!("game state: Win");
@@ -63,9 +66,7 @@ impl GameState {
 				println!("game state: Death");
 			},
 		}
-
-		event_writer.write(GameStateEvent { data: data.clone() });
-		self.data = data;
+		
 	}
 }
 
@@ -132,20 +133,26 @@ impl SetupData {
 	}
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct PlayData {
 	pub stage_id: u32,
 	pub goal: u32,
 	pub score: u32,
-	pub snake1_active: bool,
-	pub snake2_active: bool,
-	pub snake3_active: bool,
-	pub snake1_coordinate: StageCoordinate,
-	pub snake2_coordinate: StageCoordinate,
-	pub snake3_coordinate: StageCoordinate,
-	pub snake1_falling: bool,
-	pub snake2_falling: bool,
-	pub snake3_falling: bool,
+	pub snake1_data: SnakePlayData,
+	pub snake2_data: SnakePlayData,
+	pub snake3_data: SnakePlayData,
+}
+
+#[derive(Debug, Clone)]
+pub struct SnakePlayData {
+	pub active: bool,
+	pub coordinate: StageCoordinate,
+	pub previous_coordinate: StageCoordinate,
+	pub falling: bool,
+	pub fall_duration: u32,
+	pub refresh_segments: bool,
+	pub evaluate_move: bool,
+	pub walkable_mask: StageWalkableMask,
 }
 
 impl PlayData {
@@ -154,15 +161,24 @@ impl PlayData {
 			stage_id: stage_id,
 			goal: 3,
 			score: 0,
-			snake1_active: false,
-			snake2_active: false,
-			snake3_active: false,
-			snake1_coordinate: StageCoordinate::new(0, 0),
-			snake2_coordinate: StageCoordinate::new(0, 0),
-			snake3_coordinate: StageCoordinate::new(0, 0),
-			snake1_falling: false,
-			snake2_falling: false,
-			snake3_falling: false,
+			snake1_data: SnakePlayData::new(),
+			snake2_data: SnakePlayData::new(),
+			snake3_data: SnakePlayData::new(),
+		}
+	}
+}
+
+impl SnakePlayData {
+	fn new() -> Self {
+		SnakePlayData { 
+			active: false,
+			coordinate: StageCoordinate::new(0,0),
+			previous_coordinate: StageCoordinate::new(0,0),
+			falling: false,
+			fall_duration: 0,
+			refresh_segments: false,
+			evaluate_move: false,
+			walkable_mask: StageWalkableMask::new(0,0),
 		}
 	}
 }
