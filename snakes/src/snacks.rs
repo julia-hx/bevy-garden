@@ -21,11 +21,16 @@ fn read_stage_events(
 	mut commands: Commands,
 	mut meshes: ResMut<Assets<Mesh>>,
 	mut materials: ResMut<Assets<StandardMaterial>>,
+	query: Query<Entity, With<Snack>>
 ) {
 	for e in stage_events.read() {
 		match e.data {
 			StageEventData::SpawnSnack(spawn_point) => {
-				println!("...spawning snack!");
+				println!("...despawning snack that was eaten!");
+				for entity in query {
+					commands.entity(entity).despawn();
+				}
+				println!("...spawning next snack!");
 				commands.spawn((
 					Mesh3d(meshes.add(Tetrahedron::default())),
 					MeshMaterial3d(materials.add(Color::srgb_u8(220, 220, 100))),

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
-use crate::state::{ GameState, GameStateData, GameStateEvent };
+use crate::state::{ GameState, GameStateData, GameStateEvent, PlayData };
 use std::fs;
+use rand::prelude::*;
 
 const LAYOUT_FILEPATH: &str = "./assets/stage_layouts/stage_";
 const TILE_SIZE: f32 = 0.94;
@@ -311,7 +312,8 @@ fn update_stage(
 						play_data.score += 1;
 						println!("... score is now {} of {}", play_data.score, play_data.goal);
 						event_writer.write(StageEvent { data: StageEventData::SnackEaten(snake_id) });
-						stage.spawn_next_snack(&mut event_writer, &mut commands, &mut meshes, &mut materials);
+						stage.snack_coordinate = stage.get_next_snack_coordinates(&play_data);
+						event_writer.write(StageEvent { data: StageEventData::SpawnSnack(stage.snack_coordinate) });
 						break;
 					}
 
@@ -532,13 +534,12 @@ impl Stage {
 		data.tile_placed_time = time;
 	}
 
-	fn spawn_next_snack(&mut self,
-		event_writer: &mut EventWriter<StageEvent>,
-		commands: &mut Commands,
-		meshes: &mut ResMut<Assets<Mesh>>,
-		materials: &mut ResMut<Assets<StandardMaterial>>,
-	) {
-		self.snack_coordinate = StageCoordinate::new(-100, -100);
+	fn get_next_snack_coordinates(&mut self, play_data: &PlayData) -> StageCoordinate {
+		let mut rng = rand::rng();
+		let x = rng.random_range(0..self.width) as i32;
+		let y = rng.random_range(0..self.height) as i32;
+		
+		StageCoordinate::new(x, y)
 	}
 
 	fn check_walkable_tile(&mut self, coordinate: &StageCoordinate) -> bool {
