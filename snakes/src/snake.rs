@@ -1,6 +1,7 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use crate::state::{ GameState, GameStateData, GameStateEvent, SnakePlayData };
 use crate::stage::{ StageCoordinate, StageEvent, StageEventData };
+use std::collections::HashMap;
 
 const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_SEGMENT_SIZE: Vec3 = Vec3::new(0.68, 0.6, 0.68);
@@ -75,11 +76,18 @@ impl Snake {
 pub struct Segment {
 	snake_id: u32,
 	segment_id: u32,
+	coordinate: StageCoordinate,
+	move_counter: u32, // used to determine when to move each segment
 }
 
 impl Segment {
 	fn new(snake_id: u32, segment_id: u32) -> Self {
-		Self { snake_id, segment_id }
+		Self { 
+			snake_id,
+			segment_id,
+			coordinate: StageCoordinate::new(0,0),
+			move_counter: 0,
+		}
 	}
 }
 
@@ -98,8 +106,6 @@ pub enum Direction {
 	Left,
 	Right,
 }
-
-
 
 impl InputMapping {
 	fn new(
@@ -367,34 +373,68 @@ fn move_segments(
 ) {
 	match &mut game_state.data {
 		GameStateData::Play(play_data) => {
-			// let segments_1: Vec<(&mut Segment, &mut Transform)> = vec![];
+			let mut segment_coordinates_1:HashMap<u32, StageCoordinate> = HashMap::new();
+			let mut segment_coordinates_2:HashMap<u32, StageCoordinate> = HashMap::new();
+			let mut segment_coordinates_3:HashMap<u32, StageCoordinate> = HashMap::new();
+
+			// collect segments by snake and segment id
+			for (segment, _transform) in &mut query {
+				match segment.snake_id {
+					1 => { segment_coordinates_1.insert(segment.segment_id, segment.coordinate); }
+					2 => { segment_coordinates_2.insert(segment.segment_id, segment.coordinate); }
+					3 => { segment_coordinates_3.insert(segment.segment_id, segment.coordinate); }
+					_ => { return; }
+				}
+			}
+
+			// assign next coordinates by cycling them through 
+			cycle_segment_coordinates(&mut segment_coordinates_1, &play_data.snake1_data);
+			cycle_segment_coordinates(&mut segment_coordinates_2, &play_data.snake2_data);
+			cycle_segment_coordinates(&mut segment_coordinates_3, &play_data.snake3_data);
+
+			//dbg!(&segment_coordinates_1);
+			//dbg!(&segment_coordinates_2);
+			//dbg!(&segment_coordinates_3);
+
 			for (segment, mut transform) in &mut query {
 				let next_translation:Vec3;
 				let snake_data: &SnakePlayData;
 				match segment.snake_id {
-					1 => { snake_data = &play_data.snake1_data; }
-					2 => { snake_data = &play_data.snake2_data; }
-					3 => { snake_data = &play_data.snake3_data; }
+					1 => {
+						snake_data = &play_data.snake1_data;
+					}
+					2 => {
+						snake_data = &play_data.snake2_data;
+					}
+					3 => {
+						snake_data = &play_data.snake3_data;
+					}
 					_ => { return; }
 				}
 
 				if !snake_data.refresh_segments { return; }
+
 				if snake_data.falling {
 					next_translation = Vec3::new(
-						snake_data.previous_coordinate.x as f32,
+						segment.coordinate.x as f32,
 						SNAKE_Y - snake_data.fall_duration as f32, 
-						snake_data.previous_coordinate.y as f32
+						segment.coordinate.y as f32
 					);
 				} else {
 					next_translation = Vec3::new(
-						snake_data.previous_coordinate.x as f32,
+						segment.coordinate.x as f32,
 						SNAKE_Y,
-						snake_data.previous_coordinate.y as f32
+						segment.coordinate.y as f32
 					);
 				}
 				transform.translation = next_translation;
 			}
 
+			play_data.snake1_data.refresh_segments = false;
+			play_data.snake2_data.refresh_segments = false;
+			play_data.snake3_data.refresh_segments = false;
+
+			/*
 			for (segment, _transform) in &mut query {
 				match segment.snake_id {
 					1 => { play_data.snake1_data.refresh_segments = false; }
@@ -402,9 +442,16 @@ fn move_segments(
 					3 => { play_data.snake3_data.refresh_segments = false; }
 					_ => {}
 				}
-			}
+			}*/
 		}
 		_=> { return; }
+	}
+}
+
+fn cycle_segment_coordinates(segment_coordinates: &mut HashMap<u32, StageCoordinate>, snake_data: &SnakePlayData) {
+	for i in (0..segment_coordinates.keys().len() as u32).rev() {
+		if i == 0 { *segment_coordinates.get_mut(&i).unwrap() = snake_data.previous_coordinate; }
+		else { *segment_coordinates.get_mut(&(i)).unwrap() = *segment_coordinates.get_mut(&(i-1)).unwrap(); }
 	}
 }
 
