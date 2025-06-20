@@ -5,11 +5,12 @@ use crate::stage::{ StageCoordinate, StageEvent, StageEventData };
 const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_SEGMENT_SIZE: Vec3 = Vec3::new(0.68, 0.6, 0.68);
 const SNAKE_Y: f32 = 1.4;
-const DEFAULT_MOVE_INTERVAL: f32 = 0.4;
+const DEFAULT_MOVE_INTERVAL: f32 = 0.5;
+const DEFAULT_MOVE_INTERVAL_DECREMENT: f32 = 0.0005;
 const HIDDEN_COORDINATE: StageCoordinate = StageCoordinate::new(1000, 1000);
 
-const SNAKE_COLOR_1: Color = Color::srgb_u8(80, 220, 220);
-const SNAKE_COLOR_2: Color = Color::srgb_u8(220, 100, 220);
+const SNAKE_COLOR_1: Color = Color::srgb_u8(220, 100, 220);
+const SNAKE_COLOR_2: Color = Color::srgb_u8(80, 220, 220);
 const SNAKE_COLOR_3: Color = Color::srgb_u8(120, 220, 120);
 
 pub struct SnakePlugin;
@@ -34,6 +35,7 @@ impl Plugin for SnakePlugin {
 pub struct Snake {
 	pub id: u32,
 	pub direction: Direction,
+	pub last_direction_moved: Direction,
 	pub falling: bool,
 	pub fall_duration: u32,
 	pub segments: u32,
@@ -50,6 +52,7 @@ impl Snake {
 		Self {
 			id: id,
 			direction: Direction::Up,
+			last_direction_moved: Direction::None,
 			falling: false,
 			fall_duration: 0,
 			segments: 0,
@@ -63,7 +66,7 @@ impl Snake {
 	}
 
 	fn set_direction(&mut self, direction: Direction) {
-		if is_opposite_direction(&self.direction, &direction) {
+		if is_opposite_direction(&self.last_direction_moved, &direction) {
 			println!("-- snake can't turn around on itself!");
 			return;
 		}
@@ -98,8 +101,9 @@ pub struct InputMapping {
 	pub right: KeyCode,
 }
 
-#[derive(Component)]
+#[derive(Component, Copy, Clone)]
 pub enum Direction {
+	None,
 	Up,
 	Down,
 	Left,
@@ -180,11 +184,6 @@ fn read_gamestate_events(
 		match gamestate_data {
 			GameStateData::Init => {},
 			GameStateData::Setup (setup_data)=> { 
-				if setup_data.move_speed > 0.1 {
-					snake.move_interval = DEFAULT_MOVE_INTERVAL / setup_data.move_speed; 
-				} else {
-					snake.move_interval = DEFAULT_MOVE_INTERVAL;
-				}
 				snake.falling = false;
 				snake.fall_duration = 0;
 			},
@@ -194,7 +193,11 @@ fn read_gamestate_events(
 				}
 			},
 			GameStateData::Play (play_data) => {
-				
+				if play_data.move_speed > 0.1 {
+					snake.move_interval = DEFAULT_MOVE_INTERVAL / play_data.move_speed; 
+				} else {
+					snake.move_interval = DEFAULT_MOVE_INTERVAL;
+				}
 			},
 			GameStateData::Win => {},
 			GameStateData::Death => {},
@@ -307,7 +310,9 @@ fn move_snakes(
 						Direction::Down => { snake.stage_coordinate.y += 1; }
 						Direction::Left => { snake.stage_coordinate.x -= 1; }
 						Direction::Right => { snake.stage_coordinate.x += 1; }
+						Direction::None => {}
 					}
+					snake.last_direction_moved = snake.direction;
 					next_translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
 				}
 
@@ -331,6 +336,7 @@ fn move_snakes(
 				}
 				
 				transform.translation = next_translation;
+				snake.move_interval -= play_data.move_speed_increment * DEFAULT_MOVE_INTERVAL_DECREMENT;
 				snake.last_move_time = time.elapsed_secs();
 			}
 		}
@@ -402,13 +408,14 @@ fn move_segments(
 
 				// if the segment has been on the same coordinate for the same amount of moves
 				// as the snake has segments, time to move it up behind the snake head!
+				// using > instead of >= because 1-indexed when looping...
 				if segment.move_counter > snake_data.segments {
 					segment.coordinate = snake_data.previous_coordinate;
-					segment.move_counter = 1; // magic reset to one to avoid segments getting into lockstep
+					segment.move_counter = 1; // ...to avoid segments getting into lockstep.
 				} else { continue; }
 
 				if snake_data.had_a_snack { 
-					// skip one turn when we have a newly spawned segment 
+					// skip one turn when we have a newly spawned segment
 					continue;
 				}
 
@@ -431,6 +438,7 @@ fn move_segments(
 				segments_moved += 1;
 			}
 
+			// data reset when done.
 			play_data.snake1_data.refresh_segments = false;
 			play_data.snake1_data.had_a_snack = false;
 			play_data.snake2_data.refresh_segments = false;
@@ -438,7 +446,7 @@ fn move_segments(
 			play_data.snake3_data.refresh_segments = false;
 			play_data.snake3_data.had_a_snack = false;
 
-			if segments_moved > 0 { println!("{} segments moved", segments_moved); }
+			// if segments_moved > 0 { println!("{} segments moved", segments_moved); }
 		}
 		_=> { return; }
 	}

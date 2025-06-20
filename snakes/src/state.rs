@@ -115,7 +115,6 @@ fn update_gamestate(
 #[derive(Debug, Clone, Copy)]
 pub struct SetupData {
 	pub stage_id: u32,
-	pub move_speed: f32,
 	pub spotlight_translation: Vec3,
 	pub spotlight_intensity_multiplier: f32,
 	pub setup_done: bool,
@@ -125,7 +124,6 @@ impl SetupData {
 	fn new(stage_id: u32) -> Self {
 		Self {
 			stage_id: stage_id,
-			move_speed: 1.0,
 			spotlight_translation: Vec3::new(6.0, 8.0, 4.0),
 			spotlight_intensity_multiplier: 1.0,
 			setup_done: false,
@@ -138,6 +136,8 @@ pub struct PlayData {
 	pub stage_id: u32,
 	pub goal: u32,
 	pub score: u32,
+	pub move_speed: f32,
+	pub move_speed_increment: f32,
 	pub snake1_data: SnakePlayData,
 	pub snake2_data: SnakePlayData,
 	pub snake3_data: SnakePlayData,
@@ -163,6 +163,8 @@ impl PlayData {
 			stage_id: stage_id,
 			goal: 100,
 			score: 0,
+			move_speed: 1.0, // 1.0 = default
+			move_speed_increment: 1.0, // 1.0 = default
 			snake1_data: SnakePlayData::new(),
 			snake2_data: SnakePlayData::new(),
 			snake3_data: SnakePlayData::new(),
