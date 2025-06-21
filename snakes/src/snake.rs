@@ -1,6 +1,6 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use crate::state::{ GameState, GameStateData, GameStateEvent, SnakePlayData };
-use crate::stage::{ StageCoordinate, StageEvent, StageEventData, StageWalkableMask };
+use crate::stage::{ StageCoordinate, StageEvent, StageEventData };
 
 const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_SEGMENT_SIZE: Vec3 = Vec3::new(0.68, 0.6, 0.68);
@@ -13,7 +13,7 @@ const SNAKE_COLOR_1: Color = Color::srgb_u8(220, 100, 220);
 const SNAKE_COLOR_2: Color = Color::srgb_u8(80, 220, 220);
 const SNAKE_COLOR_3: Color = Color::srgb_u8(120, 220, 120);
 
-const DEBUG_SNAKES_WALKABLE_MASK: bool = true;
+const DEBUG_SNAKES_WALKABLE_MASK: bool = false;
 
 pub struct SnakePlugin;
 
@@ -52,7 +52,7 @@ pub struct Snake {
 impl Snake {
 	fn new(id: u32, activated: bool) -> Self {
 		Self {
-			id: id,
+			id,
 			direction: Direction::Up,
 			last_direction_moved: Direction::None,
 			falling: false,
@@ -61,7 +61,7 @@ impl Snake {
 			last_move_time: 0.0,
 			move_interval: 1.0,
 			stage_coordinate: HIDDEN_COORDINATE,
-			activated: activated,
+			activated,
 			input_received: false,
 			had_a_snack: false
 		}
@@ -118,7 +118,7 @@ impl InputMapping {
 		right: KeyCode
 	) -> Self {
 		Self {
-			up: up, down: down, left: left, right: right
+			up, down, left, right
 		}
 	}
 }
@@ -268,13 +268,12 @@ fn move_snakes(
 		}
 		GameStateData::Play (play_data) => {
 			for(mut snake, mut transform) in query {
-				let snake_data: &mut SnakePlayData;
-				match snake.id {
-					1 => { snake_data = &mut play_data.snake1_data; }
-					2 => { snake_data = &mut play_data.snake2_data; }
-					3 => { snake_data = &mut play_data.snake3_data; }
+				let snake_data: &mut SnakePlayData = match snake.id {
+					1 => { &mut play_data.snake1_data }
+					2 => { &mut play_data.snake2_data }
+					3 => { &mut play_data.snake3_data }
 					_=> { return; }
-				}
+				};
 
 				snake_data.active = snake.activated;
 				snake_data.falling = snake.falling;
@@ -316,7 +315,7 @@ fn move_snakes(
 			}
 
 			if DEBUG_SNAKES_WALKABLE_MASK {
-				println!("");
+				println!(" ");
 				play_data.snakes_walkable_mask.print();
 			}
 		}
@@ -331,35 +330,31 @@ fn spawn_segments(
 	mut meshes: ResMut<Assets<Mesh>>,
 	mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-	match &mut game_state.data {
-		GameStateData::Play(play_data) => {
-			for mut snake in query {
-				if !snake.had_a_snack { continue; }
-				let color: Color;
-				match snake.id {
-					1 => { color = SNAKE_COLOR_1; }
-					2 => { color = SNAKE_COLOR_2; }
-					3 => { color = SNAKE_COLOR_3; }
-					_ => { color = Color::srgb(0.4, 0.4, 0.4); }
-				}
-				commands.spawn((
-					Segment::new(snake.id, snake.stage_coordinate),
-					Transform::from_xyz(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32),
-					Mesh3d(meshes.add(Cuboid::new(SNAKE_SEGMENT_SIZE.x, SNAKE_SEGMENT_SIZE.y, SNAKE_SEGMENT_SIZE.z))),
-					MeshMaterial3d(materials.add(color)),
-				));
-				snake.segments += 1;
-				snake.had_a_snack = false;
-				// this data lags behind until next time segments are moved
-				match snake.id {
-					1 => { play_data.snake1_data.had_a_snack = true; }
-					2 => { play_data.snake2_data.had_a_snack = true; }
-					3 => { play_data.snake3_data.had_a_snack = true; }
-					_ => {}
-				}
-			}	
+	if let GameStateData::Play(play_data) = &mut game_state.data {
+		for mut snake in query {
+			if !snake.had_a_snack { continue; }
+			let color: Color = match snake.id {
+				1 => { SNAKE_COLOR_1 }
+				2 => { SNAKE_COLOR_2 }
+				3 => { SNAKE_COLOR_3 }
+				_ => { Color::srgb(0.4, 0.4, 0.4) }
+			};
+			commands.spawn((
+				Segment::new(snake.id, snake.stage_coordinate),
+				Transform::from_xyz(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32),
+				Mesh3d(meshes.add(Cuboid::new(SNAKE_SEGMENT_SIZE.x, SNAKE_SEGMENT_SIZE.y, SNAKE_SEGMENT_SIZE.z))),
+				MeshMaterial3d(materials.add(color)),
+			));
+			snake.segments += 1;
+			snake.had_a_snack = false;
+			// this data lags behind until next time segments are moved
+			match snake.id {
+				1 => { play_data.snake1_data.had_a_snack = true; }
+				2 => { play_data.snake2_data.had_a_snack = true; }
+				3 => { play_data.snake3_data.had_a_snack = true; }
+				_ => {}
+			}
 		}
-		_=> {}
 	}
 }
 
@@ -369,14 +364,12 @@ fn move_segments(
 ) {
 	if let GameStateData::Play(play_data) = &mut game_state.data {
 		for (mut segment, mut transform) in &mut query {
-			let snake_data: &SnakePlayData;
-			
-			match segment.snake_id {
-				1 => { snake_data = &play_data.snake1_data; }
-				2 => { snake_data = &play_data.snake2_data; }
-				3 => { snake_data = &play_data.snake3_data; }
+			let snake_data = match segment.snake_id {
+				1 => { &play_data.snake1_data }
+				2 => { &play_data.snake2_data }
+				3 => { &play_data.snake3_data }
 				_ => { return; }
-			}
+			};
 
 			if !snake_data.refresh_segments { return; }
 			
@@ -399,26 +392,22 @@ fn move_segments(
 				continue;
 			}
 
-			let next_translation:Vec3;
-
-			if snake_data.falling {
-				next_translation = Vec3::new(
+			transform.translation = if snake_data.falling {
+				Vec3::new(
 					segment.coordinate.x as f32,
 					SNAKE_Y - snake_data.fall_duration as f32, 
 					segment.coordinate.y as f32
-				);
+				)
 			} else {
-				next_translation = Vec3::new(
+				Vec3::new(
 					segment.coordinate.x as f32,
 					SNAKE_Y,
 					segment.coordinate.y as f32
-				);
-			}
-			transform.translation = next_translation;
+				)
+			};
 		}
 
 		// data reset when done.
-
 		play_data.snake1_data.refresh_segments = false;
 		play_data.snake1_data.had_a_snack = false;
 		play_data.snake2_data.refresh_segments = false;

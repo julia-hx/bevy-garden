@@ -96,9 +96,8 @@ fn update_gamestate(
 		},
 		GameStateData::Start => {
 			for e in key_events.read() {
-				match e.key_code {
-					KeyCode::Space => { game_state.set_data(GameStateData::Play(PlayData::new(stage, width, height)), &mut event_writer); }
-					_ => {}
+				if e.key_code == KeyCode::Space {
+					game_state.set_data(GameStateData::Play(PlayData::new(stage, width, height)), &mut event_writer);
 				}
 			}
 		}, 
@@ -127,7 +126,7 @@ pub struct SetupData {
 impl SetupData {
 	fn new(stage_id: u32) -> Self {
 		Self {
-			stage_id: stage_id,
+			stage_id,
 			spotlight_translation: Vec3::new(6.0, 8.0, 4.0),
 			spotlight_intensity_multiplier: 1.0,
 			setup_done: false,
@@ -164,7 +163,7 @@ pub struct SnakePlayData {
 impl PlayData {
 	fn new(stage_id: u32, stage_width: usize, stage_height: usize) -> Self {
 		Self {
-			stage_id: stage_id,
+			stage_id,
 			goal: 100,
 			score: 0,
 			move_speed: 1.0, // 1.0 = default

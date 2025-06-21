@@ -168,8 +168,7 @@ impl StageWalkableMask {
 		for row in &self.rows {
 			let mut print_row: String = String::new();
 			for tile in &row.tiles {
-				let c;
-				if *tile { c = '1'; } else { c = '0'; }
+				let c = if *tile { '1' } else { '0' };
 				print_row.push(c);
 			}
 			println!("{print_row}");
@@ -331,7 +330,7 @@ fn update_stage(
 						play_data.score += 1;
 						println!("... score is now {} of {}", play_data.score, play_data.goal);
 						event_writer.write(StageEvent { data: StageEventData::SnackEaten(snake_id) });
-						stage.snack_coordinate = stage.get_next_snack_coordinate(&play_data);
+						stage.snack_coordinate = stage.get_next_snack_coordinate(play_data);
 						event_writer.write(StageEvent { data: StageEventData::SpawnSnack(stage.snack_coordinate) });
 						break;
 					}
@@ -411,7 +410,7 @@ impl Stage {
 	}
 
 	fn calculate_height_and_width_from_layout(&mut self) {
-		if self.layout.len() == 0 {
+		if self.layout.is_empty() {
 			self.height = 0;
 			self.width = 0;
 			return;
@@ -424,7 +423,7 @@ impl Stage {
 	} 
 
 	fn calculate_camera_translation(&mut self) {
-		if self.layout.len() == 0 { self.camera_translation = Vec3::ZERO; }
+		if self.layout.is_empty() { self.camera_translation = Vec3::ZERO; }
 		
 		let mut x = self.width as f32;
 		let mut z: f32 = self.height as f32;
@@ -534,7 +533,7 @@ impl Stage {
 		}
 
 		if data.interval > 0.01 {
-			data.interval = data.interval * 0.86;
+			data.interval *= 0.86;
 		} else {
 			data.interval = 0.001; // tick more or less every frame for the rest
 		}
@@ -558,9 +557,9 @@ impl Stage {
 			}
 		}
 
-		if candidates.len() > 0 {
+		if !candidates.is_empty() {
 			let ri = rng.random_range(0..candidates.len());
-			return candidates[ri];
+			candidates[ri]
 		}
 		else { StageCoordinate::new(0, 0) }
 	}
