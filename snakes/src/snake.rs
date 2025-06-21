@@ -201,6 +201,7 @@ fn read_gamestate_events(
 				},
 				GameStateData::Win => {},
 				GameStateData::Death => {},
+				GameStateData::Reset(_counter) => {}
 			}
 		}
 	}
@@ -333,12 +334,7 @@ fn move_snakes(
 				play_data.snakes_walkable_mask.print();
 			}
 		}
-		GameStateData::Win => {
-			for(_snake, mut transform) in query {
-				transform.translation = Vec3::new(HIDDEN_COORDINATE.x as f32, SNAKE_Y, HIDDEN_COORDINATE.y as f32);
-			}
-		}
-		GameStateData::Death => {
+		GameStateData::Reset(_counter) => {
 			for(_snake, mut transform) in query {
 				transform.translation = Vec3::new(HIDDEN_COORDINATE.x as f32, SNAKE_Y, HIDDEN_COORDINATE.y as f32);
 			}
@@ -447,12 +443,7 @@ fn despawn_segments(
 	mut commands: Commands,
 ) {
 	match &mut game_state.data {
-		GameStateData::Win => {
-			for entity in query {
-				commands.entity(entity).despawn();
-			}
-		}
-		GameStateData::Death => {
+		GameStateData::Reset(_counter) => {
 			for entity in query {
 				commands.entity(entity).despawn();
 			}

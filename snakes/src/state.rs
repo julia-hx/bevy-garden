@@ -23,6 +23,7 @@ pub enum GameStateData {
 	Play(PlayData),
 	Win,
 	Death,
+	Reset(u32), // counter for now
 }
 
 // There is some duplication with GameStateEvent vs GameState as a resource.
@@ -69,6 +70,9 @@ impl GameState {
 			GameStateData::Death => {
 				println!("game state: Death");
 			},
+			GameStateData::Reset(_counter) => {
+				println!("game state: Reset");
+			}
 		}
 		
 	}
@@ -87,22 +91,22 @@ fn update_gamestate(
 	let width = game_state.stage_width;
 	let height = game_state.stage_height;
 	
-	match &game_state.data {
+	match &mut game_state.data {
 		GameStateData::Init => {
 			game_state.stage = 0;
 			let initial_setup_data = GameStateData::Setup(SetupData::new(stage));
 			game_state.set_data(initial_setup_data, &mut event_writer);
-		},
+		}
 		GameStateData::Setup(setup_data) => {
 			if setup_data.setup_done { game_state.set_data(GameStateData::Start, &mut event_writer); }
-		},
+		}
 		GameStateData::Start => {
 			for e in key_events.read() {
 				if e.key_code == KeyCode::Space {
 					game_state.set_data(GameStateData::Play(PlayData::new(stage, width, height)), &mut event_writer);
 				}
 			}
-		}, 
+		} 
 		GameStateData::Play (play_data) => {
 			if play_data.score >= play_data.goal {
 				println!("Cleared stage {}!", play_data.stage_id);
@@ -110,24 +114,29 @@ fn update_gamestate(
 			} else if play_data.crash {
 				game_state.set_data(GameStateData::Death, &mut event_writer);
 			}
-		},
+		}
 		GameStateData::Win => {
 			for e in key_events.read() {
-				if game_state.stage < LAST_STAGE { game_state.stage += 1 };
-				let stage = game_state.stage;
 				if e.key_code == KeyCode::Space {
-					game_state.set_data(GameStateData::Setup(SetupData::new(stage)), &mut event_writer);
+					if game_state.stage < LAST_STAGE { game_state.stage += 1 };
+					game_state.set_data(GameStateData::Reset(0), &mut event_writer);
 				}
 			}
-		},
+		}
 		GameStateData::Death => {
 			for e in key_events.read() {
-				let stage = game_state.stage;
 				if e.key_code == KeyCode::Space {
-					game_state.set_data(GameStateData::Setup(SetupData::new(stage)), &mut event_writer);
+					game_state.set_data(GameStateData::Reset(0), &mut event_writer);
 				}
 			}
-		}, 
+		}
+		GameStateData::Reset(counter) => {
+			*counter += 1;
+			if *counter >= 30 {
+				let stage = game_state.stage;
+				game_state.set_data(GameStateData::Setup(SetupData::new(stage)), &mut event_writer);
+			}
+		}
 	}
 }
 

@@ -253,21 +253,24 @@ fn read_gamestate_events(
 				
 				println!("stage: setting stage {}", stage.id);
 				break;
-			},
+			}
 			GameStateData::Start => {
 				println!("stage walkable mask:");
 				stage.walkable.print();
 				break;
-			},
+			}
 			GameStateData::Play (_play_data)=> {
 				
-			},
+			}
 			GameStateData::Win => {
 				event_writer.write(StageEvent { data: StageEventData::ClearSnack });
-			},
+			}
 			GameStateData::Death => {
 				
-			},
+			}
+			GameStateData::Reset(_counter) => {
+
+			}
 		}
 	}
 }
@@ -380,13 +383,8 @@ fn update_tiles(
 	query: Query<(Entity, &Tile, &mut Transform)>
 ) {
 	match &mut game_state.data {
-		GameStateData::Win => {
-			for (entity, tile, transform) in query {
-				commands.entity(entity).despawn();
-			}
-		}
-		GameStateData::Death => {
-			for (entity, tile, transform) in query {
+		GameStateData::Reset(_counter) => {
+			for (entity, _tile, _transform) in query {
 				commands.entity(entity).despawn();
 			}
 		}
