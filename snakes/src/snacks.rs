@@ -26,7 +26,7 @@ fn read_stage_events(
 	for e in stage_events.read() {
 		match e.data {
 			StageEventData::SpawnSnack(spawn_point) => {
-				println!("...despawning snack that was eaten!");
+				println!("...despawning snack that was eaten");
 				for entity in query {
 					commands.entity(entity).despawn();
 				}

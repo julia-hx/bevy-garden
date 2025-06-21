@@ -150,6 +150,20 @@ impl StageWalkableMask {
 		}
 	}
 
+	pub fn set(&mut self, coordinate: &StageCoordinate, value: bool) {
+		if coordinate.y < 0 || coordinate.y >= self.rows.len() as i32 { return; }
+		if coordinate.x < 0 || coordinate.x >= self.rows[coordinate.y as usize].tiles.len() as i32 { return; }
+
+		self.rows[coordinate.y as usize].tiles[coordinate.x as usize] = value;
+	}
+
+	pub fn get(&mut self, coordinate: &StageCoordinate) -> bool {
+		if coordinate.y < 0 || coordinate.y >= self.rows.len() as i32 { return false; }
+		if coordinate.x < 0 || coordinate.x >= self.rows[coordinate.y as usize].tiles.len() as i32 { return false; }
+
+		self.rows[coordinate.y as usize].tiles[coordinate.x as usize]
+	}
+
 	pub fn print(&self) {
 		for row in &self.rows {
 			let mut print_row: String = String::new();
@@ -283,6 +297,11 @@ fn update_stage(
 				transform.look_at(Vec3::new(stage.camera_translation.x, 0.0, stage.camera_translation.z), -Vec3::Z);
 				clear_color.0 = stage.colors.clear_color;
 
+				game_state.stage_width = stage.width;
+				game_state.stage_height = stage.height;
+
+				// we're spamming data here... but this state doesn't do much else except waiting for player to press play.
+
 				return;
 			}
 			GameStateData::Play (play_data) => {				
@@ -312,24 +331,15 @@ fn update_stage(
 						play_data.score += 1;
 						println!("... score is now {} of {}", play_data.score, play_data.goal);
 						event_writer.write(StageEvent { data: StageEventData::SnackEaten(snake_id) });
-						stage.snack_coordinate = stage.get_next_snack_coordinates(&play_data);
+						stage.snack_coordinate = stage.get_next_snack_coordinate(&play_data);
 						event_writer.write(StageEvent { data: StageEventData::SpawnSnack(stage.snack_coordinate) });
 						break;
 					}
 
 					match snake_id {
-						1 => {
-							play_data.snake1_data.evaluate_move = false;
-							play_data.snake1_data.walkable_mask.init(stage.width, stage.height);
-						}
-						2 => {
-							play_data.snake2_data.evaluate_move = false;
-							play_data.snake2_data.walkable_mask.init(stage.width, stage.height);
-						}
-						3 => {
-							play_data.snake3_data.evaluate_move = false;
-							play_data.snake3_data.walkable_mask.init(stage.width, stage.height);
-						}
+						1 => { play_data.snake1_data.evaluate_move = false; }
+						2 => { play_data.snake2_data.evaluate_move = false; }
+						3 => { play_data.snake3_data.evaluate_move = false; }
 						_=> ()
 					}
 				}
@@ -346,12 +356,9 @@ fn update_spotlight(
 	query: Query<(&mut PointLight, &mut Transform, &mut SpotlightData)>
 ) {
 	for (mut point_light, mut transform, mut data) in query {
-		match game_state.data {
-			GameStateData::Setup(setup_data) => {
-				data.translation = setup_data.spotlight_translation;
-				data.intensity = DEFAULT_SPOTLIGHT_INTENSITY * setup_data.spotlight_intensity_multiplier;
-			}
-			_ => {}
+		if let GameStateData::Setup(setup_data) = game_state.data {
+			data.translation = setup_data.spotlight_translation;
+			data.intensity = DEFAULT_SPOTLIGHT_INTENSITY * setup_data.spotlight_intensity_multiplier;
 		}
 
 		let current_translation = transform.translation;
@@ -526,7 +533,7 @@ impl Stage {
 			data.in_progress = false; 
 		}
 
-		if data.interval > 0.05 {
+		if data.interval > 0.01 {
 			data.interval = data.interval * 0.86;
 		} else {
 			data.interval = 0.001; // tick more or less every frame for the rest
@@ -534,17 +541,34 @@ impl Stage {
 		data.tile_placed_time = time;
 	}
 
-	fn get_next_snack_coordinates(&mut self, play_data: &PlayData) -> StageCoordinate {
+	fn get_next_snack_coordinate(&mut self, play_data: &PlayData) -> StageCoordinate {
 		let mut rng = rand::rng();
-		let x = rng.random_range(0..self.width) as i32;
-		let y = rng.random_range(0..self.height) as i32;
-		
-		StageCoordinate::new(x, y)
+		let mut candidates: Vec<StageCoordinate> = vec![];
+
+		for y in 0..self.height {
+			if play_data.snakes_walkable_mask.rows.len() <= y { break; }
+			
+			for x in 0..self.width {
+				if play_data.snakes_walkable_mask.rows[y].tiles.len() <= x { break; }
+				
+				let coordinate = StageCoordinate::new(x as i32, y as i32);
+				if play_data.snakes_walkable_mask.rows[y].tiles[x] && self.walkable.get(&coordinate) {
+					candidates.push(coordinate);
+				}			
+			}
+		}
+
+		if candidates.len() > 0 {
+			let ri = rng.random_range(0..candidates.len());
+			return candidates[ri];
+		}
+		else { StageCoordinate::new(0, 0) }
 	}
 
 	fn check_walkable_tile(&mut self, coordinate: &StageCoordinate) -> bool {
 		if coordinate.y < 0 || coordinate.y >= self.height as i32 { return false; }
 		if coordinate.x < 0 || coordinate.x >= self.width as i32 { return false; }
-		return self.walkable.rows[coordinate.y as usize].tiles[coordinate.x as usize];
+		
+		self.walkable.rows[coordinate.y as usize].tiles[coordinate.x as usize]
 	}
 }

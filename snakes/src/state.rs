@@ -38,6 +38,8 @@ pub struct GameStateEvent {
 #[derive(Resource, Default)]
 pub struct GameState {
 	pub stage: u32,
+	pub stage_width: usize,
+	pub stage_height: usize,
 	pub data: GameStateData,
 }
 
@@ -80,6 +82,8 @@ fn update_gamestate(
 	mut key_events: EventReader<KeyboardInput>,
 ) {
 	let stage = game_state.stage;
+	let width = game_state.stage_width;
+	let height = game_state.stage_height;
 	
 	match &game_state.data {
 		GameStateData::Init => {
@@ -93,7 +97,7 @@ fn update_gamestate(
 		GameStateData::Start => {
 			for e in key_events.read() {
 				match e.key_code {
-					KeyCode::Space => { game_state.set_data(GameStateData::Play(PlayData::new(stage)), &mut event_writer); }
+					KeyCode::Space => { game_state.set_data(GameStateData::Play(PlayData::new(stage, width, height)), &mut event_writer); }
 					_ => {}
 				}
 			}
@@ -141,6 +145,7 @@ pub struct PlayData {
 	pub snake1_data: SnakePlayData,
 	pub snake2_data: SnakePlayData,
 	pub snake3_data: SnakePlayData,
+	pub snakes_walkable_mask: StageWalkableMask,
 }
 
 #[derive(Debug, Clone)]
@@ -154,11 +159,10 @@ pub struct SnakePlayData {
 	pub segments: u32,
 	pub refresh_segments: bool,
 	pub evaluate_move: bool,
-	pub walkable_mask: StageWalkableMask,
 }
 
 impl PlayData {
-	fn new(stage_id: u32) -> Self {
+	fn new(stage_id: u32, stage_width: usize, stage_height: usize) -> Self {
 		Self {
 			stage_id: stage_id,
 			goal: 100,
@@ -168,6 +172,7 @@ impl PlayData {
 			snake1_data: SnakePlayData::new(),
 			snake2_data: SnakePlayData::new(),
 			snake3_data: SnakePlayData::new(),
+			snakes_walkable_mask: StageWalkableMask::new(stage_width, stage_height),
 		}
 	}
 }
@@ -184,7 +189,6 @@ impl SnakePlayData {
 			segments: 0,
 			refresh_segments: false,
 			evaluate_move: false,
-			walkable_mask: StageWalkableMask::new(0,0),
 		}
 	}
 }
