@@ -41,6 +41,12 @@ fn read_stage_events(
 					Snack {rotate_speed: 1.0},
 				));
 			}
+			StageEventData::ClearSnack => {
+				println!("... clear snack");
+				for entity in query {
+					commands.entity(entity).despawn();
+				}
+			}
 			_ => {}
 		}
 	}

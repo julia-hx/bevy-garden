@@ -1,7 +1,7 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use crate::stage::{ StageCoordinate, StageWalkableMask};
 
-const LAST_STAGE: u32 = 1;
+const LAST_STAGE: u32 = 2;
 
 pub struct StatePlugin;
 
@@ -213,7 +213,8 @@ impl SnakePlayData {
 fn get_stage_goal(stage_id: u32) -> u32 {
 	match stage_id {
 		0 => { 1 }
-		1 => { 10 }
+		1 => { 3 }
+		2 => { 10 }
 		_ => { 3 }
 	}
 }

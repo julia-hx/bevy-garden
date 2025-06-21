@@ -28,6 +28,7 @@ impl Plugin for SnakePlugin {
 				move_snakes,
 				spawn_segments,
 				move_segments,
+				despawn_segments,
 			).chain()
 		);
 	}
@@ -183,9 +184,13 @@ fn read_gamestate_events(
 	for (mut snake, mut transform) in &mut query {
 		match gamestate_data {
 			GameStateData::Init => {},
-			GameStateData::Setup (setup_data)=> { 
+			GameStateData::Setup (_setup_data)=> { 
 				snake.falling = false;
 				snake.fall_duration = 0;
+				snake.segments = 0;
+				snake.last_direction_moved = Direction::None;
+				snake.input_received = false;
+				snake.stage_coordinate = HIDDEN_COORDINATE;
 			},
 			GameStateData::Start => {
 				if snake.activated {
@@ -207,6 +212,7 @@ fn read_gamestate_events(
 
 fn read_stage_events (
 	mut stage_events: EventReader<StageEvent>,
+	mut game_state: ResMut<GameState>,
 	query: Query<&mut Snake>,
 ) {
 	let event_data;
@@ -215,6 +221,11 @@ fn read_stage_events (
 		event_data = e.data.clone();
 	} else { return; }
 
+	let is_play: bool;
+	if let GameStateData::Play(_play_data) = &mut game_state.data {
+		is_play = true;
+	} else { is_play = false; }
+
 	for mut snake in query {
 		match event_data {
 			StageEventData::SetSnakeSpawnPoint(spawn_point_data) => {
@@ -222,12 +233,14 @@ fn read_stage_events (
 				snake.stage_coordinate = spawn_point_data.spawn_point;
 			}
 			StageEventData::SnackEaten(snake_id) => {
+				if !is_play { continue; }
 				if snake_id == snake.id {
 					println!("snake {} had a lil snack!", snake_id);
 					snake.had_a_snack = true;
 				}
 			}
 			StageEventData::SnakeFalling(snake_id) => {
+				if !is_play { continue; }
 				if snake_id == snake.id {
 					snake.falling = true;
 					println!("snake {} is falling!", snake_id);
@@ -327,6 +340,16 @@ fn move_snakes(
 				play_data.snakes_walkable_mask.print();
 			}
 		}
+		GameStateData::Win => {
+			for(_snake, mut transform) in query {
+				transform.translation = Vec3::new(HIDDEN_COORDINATE.x as f32, SNAKE_Y, HIDDEN_COORDINATE.y as f32);
+			}
+		}
+		GameStateData::Death => {
+			for(_snake, mut transform) in query {
+				transform.translation = Vec3::new(HIDDEN_COORDINATE.x as f32, SNAKE_Y, HIDDEN_COORDINATE.y as f32);
+			}
+		}
 		_ => {}
 	}
 }
@@ -369,7 +392,7 @@ fn spawn_segments(
 fn move_segments(
 	mut game_state: ResMut<GameState>,
 	mut query: Query<(&mut Segment, &mut Transform)>,
-) {
+) {	
 	if let GameStateData::Play(play_data) = &mut game_state.data {
 		for (mut segment, mut transform) in &mut query {
 			let snake_data = match segment.snake_id {
@@ -422,6 +445,26 @@ fn move_segments(
 		play_data.snake2_data.had_a_snack = false;
 		play_data.snake3_data.refresh_segments = false;
 		play_data.snake3_data.had_a_snack = false;
+	}
+}
+
+fn despawn_segments(
+	mut game_state: ResMut<GameState>,
+	query: Query<Entity, With<Segment>>,
+	mut commands: Commands,
+) {
+	match &mut game_state.data {
+		GameStateData::Win => {
+			for entity in query {
+				commands.entity(entity).despawn();
+			}
+		}
+		GameStateData::Death => {
+			for entity in query {
+				commands.entity(entity).despawn();
+			}
+		}
+		_ => {}
 	}
 }
 

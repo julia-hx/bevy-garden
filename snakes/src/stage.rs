@@ -14,7 +14,12 @@ impl Plugin for StagePlugin {
 	fn build(&self, app: &mut App) {
 		app.add_event::<StageEvent>();
 		app.add_systems(Startup, init_stage);
-		app.add_systems(Update, (read_gamestate_events, update_stage, update_spotlight).chain());
+		app.add_systems(Update, (
+			read_gamestate_events,
+			update_stage,
+			update_tiles,
+			update_spotlight,
+		).chain());
 	}
 }
 
@@ -28,6 +33,7 @@ pub enum StageEventData {
 	Empty,
 	SetSnakeSpawnPoint(SnakeSpawnPointData),
 	SpawnSnack(StageCoordinate), // coordinate
+	ClearSnack,
 	SnackEaten(u32), // snake id
 	SnakeFalling(u32), // snake id
 }
@@ -63,6 +69,17 @@ struct Stage {
 	colors: StageColors,
 	walkable: StageWalkableMask,
 	snack_coordinate: StageCoordinate,
+}
+
+#[derive(Component)]
+struct Tile {
+
+}
+
+impl Tile {
+	fn new() -> Self {
+		Tile {}
+	}
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -331,10 +348,14 @@ fn update_stage(
 					if snake_coordinate.equals(&stage.snack_coordinate) {
 						play_data.score += 1;
 						println!("... score is now {} of {}", play_data.score, play_data.goal);
+						if play_data.score >= play_data.goal { 
+							event_writer.write(StageEvent { data: StageEventData::ClearSnack });
+							continue;
+						}
 						event_writer.write(StageEvent { data: StageEventData::SnackEaten(snake_id) });
 						stage.snack_coordinate = stage.get_next_snack_coordinate(play_data);
 						event_writer.write(StageEvent { data: StageEventData::SpawnSnack(stage.snack_coordinate) });
-						break;
+						continue;
 					}
 
 					match snake_id {
@@ -348,6 +369,27 @@ fn update_stage(
 			}
 			_=> {}
 		}
+	}
+}
+
+fn update_tiles(
+	mut game_state: ResMut<GameState>,
+	time: Res<Time>,
+	mut commands: Commands,
+	query: Query<(Entity, &Tile, &mut Transform)>
+) {
+	match &mut game_state.data {
+		GameStateData::Win => {
+			for (entity, tile, transform) in query {
+				commands.entity(entity).despawn();
+			}
+		}
+		GameStateData::Death => {
+			for (entity, tile, transform) in query {
+				commands.entity(entity).despawn();
+			}
+		}
+		_=> {}
 	}
 }
 
@@ -461,6 +503,7 @@ impl Stage {
 		match c {
 			'A' => {
 				commands.spawn((
+					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32), // coordinate swizzle xyz to xzy - top down view
@@ -468,6 +511,7 @@ impl Stage {
 			}
 			'B' => {
 				commands.spawn((
+					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_b)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
@@ -475,6 +519,7 @@ impl Stage {
 			}
 			'C' => {
 				commands.spawn((
+					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_c)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
@@ -482,6 +527,7 @@ impl Stage {
 			}
 			'1' => {
 				commands.spawn((
+					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
@@ -491,6 +537,7 @@ impl Stage {
 			}
 			'2' => {
 				commands.spawn((
+					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
@@ -500,6 +547,7 @@ impl Stage {
 			}
 			'3' => {
 				commands.spawn((
+					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
@@ -509,6 +557,7 @@ impl Stage {
 			}
 			'*' => {
 				commands.spawn((
+					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
 					MeshMaterial3d(materials.add(self.colors.tiles_a)),
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
