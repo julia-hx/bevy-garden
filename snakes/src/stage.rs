@@ -228,6 +228,7 @@ fn init_stage(
 
 fn read_gamestate_events(
 	mut gamestate_events: EventReader<GameStateEvent>,
+	mut event_writer: EventWriter<StageEvent>,
 	mut query: Query<&mut Stage>
 ) {
 	let event_data: &GameStateData;
@@ -262,7 +263,7 @@ fn read_gamestate_events(
 				
 			},
 			GameStateData::Win => {
-				
+				event_writer.write(StageEvent { data: StageEventData::ClearSnack });
 			},
 			GameStateData::Death => {
 				

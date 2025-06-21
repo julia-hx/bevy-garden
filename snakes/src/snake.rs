@@ -175,78 +175,71 @@ fn read_gamestate_events(
 	mut gamestate_events: EventReader<GameStateEvent>,
 	mut query: Query<(&mut Snake, &mut Transform)>,
 ) {
-	let gamestate_data: &GameStateData;
-	
-	if let Some(e) = gamestate_events.read().next() {
-		gamestate_data = &e.data;
-	} else { return; }
-
-	for (mut snake, mut transform) in &mut query {
-		match gamestate_data {
-			GameStateData::Init => {},
-			GameStateData::Setup (_setup_data)=> { 
-				snake.falling = false;
-				snake.fall_duration = 0;
-				snake.segments = 0;
-				snake.last_direction_moved = Direction::None;
-				snake.input_received = false;
-				snake.stage_coordinate = HIDDEN_COORDINATE;
-			},
-			GameStateData::Start => {
-				if snake.activated {
-					transform.translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
-				}
-			},
-			GameStateData::Play (play_data) => {
-				if play_data.move_speed > 0.1 {
-					snake.move_interval = DEFAULT_MOVE_INTERVAL / play_data.move_speed; 
-				} else {
-					snake.move_interval = DEFAULT_MOVE_INTERVAL;
-				}
-			},
-			GameStateData::Win => {},
-			GameStateData::Death => {},
+	for e in gamestate_events.read() {
+		for (mut snake, mut transform) in &mut query {
+			match &e.data {
+				GameStateData::Init => {},
+				GameStateData::Setup (_setup_data)=> { 
+					snake.falling = false;
+					snake.fall_duration = 0;
+					snake.segments = 0;
+					snake.last_direction_moved = Direction::None;
+					snake.input_received = false;
+					snake.stage_coordinate = HIDDEN_COORDINATE;
+				},
+				GameStateData::Start => {
+					if snake.activated {
+						transform.translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
+					}
+				},
+				GameStateData::Play (play_data) => {
+					if play_data.move_speed > 0.1 {
+						snake.move_interval = DEFAULT_MOVE_INTERVAL / play_data.move_speed; 
+					} else {
+						snake.move_interval = DEFAULT_MOVE_INTERVAL;
+					}
+				},
+				GameStateData::Win => {},
+				GameStateData::Death => {},
+			}
 		}
 	}
+	
 }
 
 fn read_stage_events (
 	mut stage_events: EventReader<StageEvent>,
 	mut game_state: ResMut<GameState>,
-	query: Query<&mut Snake>,
+	mut query: Query<&mut Snake>,
 ) {
-	let event_data;
-	
-	if let Some (e) = stage_events.read().next() {
-		event_data = e.data.clone();
-	} else { return; }
-
 	let is_play: bool;
 	if let GameStateData::Play(_play_data) = &mut game_state.data {
 		is_play = true;
 	} else { is_play = false; }
 
-	for mut snake in query {
-		match event_data {
-			StageEventData::SetSnakeSpawnPoint(spawn_point_data) => {
-				if spawn_point_data.snake_id != snake.id { continue; }
-				snake.stage_coordinate = spawn_point_data.spawn_point;
-			}
-			StageEventData::SnackEaten(snake_id) => {
-				if !is_play { continue; }
-				if snake_id == snake.id {
-					println!("snake {} had a lil snack!", snake_id);
-					snake.had_a_snack = true;
+	for e in stage_events.read() {
+		for mut snake in &mut query {
+			match e.data {
+				StageEventData::SetSnakeSpawnPoint(spawn_point_data) => {
+					if spawn_point_data.snake_id != snake.id { continue; }
+					snake.stage_coordinate = spawn_point_data.spawn_point;
 				}
-			}
-			StageEventData::SnakeFalling(snake_id) => {
-				if !is_play { continue; }
-				if snake_id == snake.id {
-					snake.falling = true;
-					println!("snake {} is falling!", snake_id);
+				StageEventData::SnackEaten(snake_id) => {
+					if !is_play { continue; }
+					if snake_id == snake.id {
+						println!("snake {} had a lil snack!", snake_id);
+						snake.had_a_snack = true;
+					}
 				}
+				StageEventData::SnakeFalling(snake_id) => {
+					if !is_play { continue; }
+					if snake_id == snake.id {
+						snake.falling = true;
+						println!("snake {} is falling!", snake_id);
+					}
+				}
+				_ => {}
 			}
-			_ => {}
 		}
 	}
 }
