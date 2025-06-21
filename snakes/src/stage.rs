@@ -151,17 +151,19 @@ impl StageWalkableMask {
 	}
 
 	pub fn set(&mut self, coordinate: &StageCoordinate, value: bool) {
-		if coordinate.y < 0 || coordinate.y >= self.rows.len() as i32 { return; }
-		if coordinate.x < 0 || coordinate.x >= self.rows[coordinate.y as usize].tiles.len() as i32 { return; }
-
+		if !self.contains(coordinate) { return; }
 		self.rows[coordinate.y as usize].tiles[coordinate.x as usize] = value;
 	}
 
 	pub fn get(&mut self, coordinate: &StageCoordinate) -> bool {
+		if !self.contains(coordinate) { return false; }
+		self.rows[coordinate.y as usize].tiles[coordinate.x as usize]
+	}
+
+	pub fn contains(&mut self, coordinate: &StageCoordinate) -> bool {
 		if coordinate.y < 0 || coordinate.y >= self.rows.len() as i32 { return false; }
 		if coordinate.x < 0 || coordinate.x >= self.rows[coordinate.y as usize].tiles.len() as i32 { return false; }
-
-		self.rows[coordinate.y as usize].tiles[coordinate.x as usize]
+		true
 	}
 
 	pub fn print(&self) {
@@ -314,7 +316,7 @@ fn update_stage(
 					if !evaluate_move { return; }
 					
 					// falling snakes?
-					if !stage.check_walkable_tile(snake_coordinate) {
+					if !stage.walkable.get(snake_coordinate) {
 						// check if already falling
 						match snake_id {
 							1 => { if play_data.snake1_data.falling { continue; } }
@@ -562,12 +564,5 @@ impl Stage {
 			candidates[ri]
 		}
 		else { StageCoordinate::new(0, 0) }
-	}
-
-	fn check_walkable_tile(&mut self, coordinate: &StageCoordinate) -> bool {
-		if coordinate.y < 0 || coordinate.y >= self.height as i32 { return false; }
-		if coordinate.x < 0 || coordinate.x >= self.width as i32 { return false; }
-		
-		self.walkable.rows[coordinate.y as usize].tiles[coordinate.x as usize]
 	}
 }

@@ -302,6 +302,14 @@ fn move_snakes(
 					next_translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
 				}
 
+				if play_data.snakes_walkable_mask.contains(&snake.stage_coordinate) 
+				&& !play_data.snakes_walkable_mask.get(&snake.stage_coordinate) 
+				&& !snake.falling {
+					// crash!
+					println!("woops snake {} crashed!", snake.id);
+					play_data.crash = true;
+				}
+
 				snake_data.coordinate = snake.stage_coordinate;
 				snake_data.refresh_segments = true;
 				snake_data.evaluate_move = true;

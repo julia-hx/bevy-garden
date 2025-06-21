@@ -1,6 +1,8 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use crate::stage::{ StageCoordinate, StageWalkableMask};
 
+const LAST_STAGE: u32 = 1;
+
 pub struct StatePlugin;
 
 impl Plugin for StatePlugin {
@@ -104,13 +106,27 @@ fn update_gamestate(
 		GameStateData::Play (play_data) => {
 			if play_data.score >= play_data.goal {
 				println!("Cleared stage {}!", play_data.stage_id);
+				game_state.set_data(GameStateData::Win, &mut event_writer);
+			} else if play_data.crash {
+				game_state.set_data(GameStateData::Death, &mut event_writer);
 			}
 		},
 		GameStateData::Win => {
-			
+			for e in key_events.read() {
+				if game_state.stage < LAST_STAGE { game_state.stage += 1 };
+				let stage = game_state.stage;
+				if e.key_code == KeyCode::Space {
+					game_state.set_data(GameStateData::Setup(SetupData::new(stage)), &mut event_writer);
+				}
+			}
 		},
 		GameStateData::Death => {
-			
+			for e in key_events.read() {
+				let stage = game_state.stage;
+				if e.key_code == KeyCode::Space {
+					game_state.set_data(GameStateData::Setup(SetupData::new(stage)), &mut event_writer);
+				}
+			}
 		}, 
 	}
 }
@@ -145,6 +161,7 @@ pub struct PlayData {
 	pub snake2_data: SnakePlayData,
 	pub snake3_data: SnakePlayData,
 	pub snakes_walkable_mask: StageWalkableMask,
+	pub crash: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -158,13 +175,13 @@ pub struct SnakePlayData {
 	pub segments: u32,
 	pub refresh_segments: bool,
 	pub evaluate_move: bool,
-}
+}	
 
 impl PlayData {
 	fn new(stage_id: u32, stage_width: usize, stage_height: usize) -> Self {
 		Self {
 			stage_id,
-			goal: 100,
+			goal: get_stage_goal(stage_id),
 			score: 0,
 			move_speed: 1.0, // 1.0 = default
 			move_speed_increment: 1.0, // 1.0 = default
@@ -172,6 +189,7 @@ impl PlayData {
 			snake2_data: SnakePlayData::new(),
 			snake3_data: SnakePlayData::new(),
 			snakes_walkable_mask: StageWalkableMask::new(stage_width, stage_height),
+			crash: false,
 		}
 	}
 }
@@ -189,5 +207,13 @@ impl SnakePlayData {
 			refresh_segments: false,
 			evaluate_move: false,
 		}
+	}
+}
+
+fn get_stage_goal(stage_id: u32) -> u32 {
+	match stage_id {
+		0 => { 1 }
+		1 => { 10 }
+		_ => { 3 }
 	}
 }
