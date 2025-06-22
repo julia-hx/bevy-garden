@@ -269,7 +269,7 @@ fn read_gamestate_events(
 				
 			}
 			GameStateData::Reset(_counter) => {
-
+				event_writer.write(StageEvent { data: StageEventData::ClearSnack });
 			}
 		}
 	}
@@ -350,8 +350,11 @@ fn update_stage(
 					}
 					// snack eaten?
 					if snake_coordinate.equals(&stage.snack_coordinate) {
+						// increment score and speed
 						play_data.score += 1;
+						play_data.move_speed += play_data.move_speed_increment;
 						println!("... score is now {} of {}", play_data.score, play_data.goal);
+						println!("... move speed is now {}", play_data.move_speed);
 						if play_data.score >= play_data.goal { 
 							event_writer.write(StageEvent { data: StageEventData::ClearSnack });
 							continue;
@@ -469,10 +472,12 @@ impl Stage {
 		if self.layout.is_empty() { self.camera_translation = Vec3::ZERO; }
 		
 		let mut x = self.width as f32;
-		let mut z: f32 = self.height as f32;
-		let y = (z + x * 0.5) * 1.4;
-		z = z / 2.0 - 0.5;
-		x = x / 2.0 - 0.5;
+		let mut z = self.height as f32;
+		
+		x = if self.width % 2 == 0 { x / 2.0 } else { x / 2.0 - 0.5 };
+		z = if self.height % 2 == 0 { z / 2.0 } else { z / 2.0 - 0.5 };
+
+		let y = (z + x) * 1.68;
 
 		self.camera_translation = Vec3::new(x, y, z);
 

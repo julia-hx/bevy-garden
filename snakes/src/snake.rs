@@ -1,12 +1,11 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-use crate::state::{ GameState, GameStateData, GameStateEvent, SnakePlayData };
+use crate::state::{ GameState, GameStateData, GameStateEvent, PlayData, SnakePlayData };
 use crate::stage::{ StageCoordinate, StageEvent, StageEventData };
 
 const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_SEGMENT_SIZE: Vec3 = Vec3::new(0.68, 0.6, 0.68);
 const SNAKE_Y: f32 = 1.4;
 const DEFAULT_MOVE_INTERVAL: f32 = 0.5;
-const DEFAULT_MOVE_INTERVAL_DECREMENT: f32 = 0.0005;
 const HIDDEN_COORDINATE: StageCoordinate = StageCoordinate::new(1000, 1000);
 
 const SNAKE_COLOR_1: Color = Color::srgb_u8(220, 100, 220);
@@ -214,8 +213,10 @@ fn read_stage_events (
 	mut query: Query<&mut Snake>,
 ) {
 	let is_play: bool;
-	if let GameStateData::Play(_play_data) = &mut game_state.data {
+	let mut play_move_speed = 1.0;
+	if let GameStateData::Play(play_data) = &mut game_state.data {
 		is_play = true;
+		play_move_speed = play_data.move_speed;
 	} else { is_play = false; }
 
 	for e in stage_events.read() {
@@ -230,6 +231,9 @@ fn read_stage_events (
 					if snake_id == snake.id {
 						println!("snake {} had a lil snack!", snake_id);
 						snake.had_a_snack = true;
+						if play_move_speed > 0.1 {
+							snake.move_interval = DEFAULT_MOVE_INTERVAL / play_move_speed; 
+						}
 					}
 				}
 				StageEventData::SnakeFalling(snake_id) => {
@@ -322,7 +326,6 @@ fn move_snakes(
 				snake_data.evaluate_move = true;
 				
 				transform.translation = next_translation;
-				snake.move_interval -= play_data.move_speed_increment * DEFAULT_MOVE_INTERVAL_DECREMENT;
 				snake.last_move_time = time.elapsed_secs();
 
 				play_data.snakes_walkable_mask.set(&snake_data.coordinate, false);
@@ -408,7 +411,8 @@ fn move_segments(
 			} else { continue; }
 
 			if snake_data.had_a_snack { 
-				// skip one turn when we have a newly spawned segment
+				// skip one transform update turn when we have a newly spawned segment - 
+				// it will appear behind the snake head when it moves.
 				continue;
 			}
 

@@ -1,7 +1,9 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use crate::stage::{ StageCoordinate, StageWalkableMask};
+use std::fs;
 
-const LAST_STAGE: u32 = 2;
+const LAST_STAGE: u32 = 3;
+const STARTING_STAGE_PATH: &str = "./assets/save_data/starting_stage.txt";
 
 pub struct StatePlugin;
 
@@ -87,14 +89,11 @@ fn update_gamestate(
 	mut game_state: ResMut<GameState>,
 	mut key_events: EventReader<KeyboardInput>,
 ) {
-	let stage = game_state.stage;
-	let width = game_state.stage_width;
-	let height = game_state.stage_height;
-	
 	match &mut game_state.data {
 		GameStateData::Init => {
-			game_state.stage = 0;
-			let initial_setup_data = GameStateData::Setup(SetupData::new(stage));
+			let saved_stage = load_starting_stage();
+			game_state.stage = if saved_stage <= LAST_STAGE { saved_stage } else { 0 };
+			let initial_setup_data = GameStateData::Setup(SetupData::new(game_state.stage));
 			game_state.set_data(initial_setup_data, &mut event_writer);
 		}
 		GameStateData::Setup(setup_data) => {
@@ -103,6 +102,9 @@ fn update_gamestate(
 		GameStateData::Start => {
 			for e in key_events.read() {
 				if e.key_code == KeyCode::Space {
+					let stage = game_state.stage;
+					let width = game_state.stage_width;
+					let height = game_state.stage_height;
 					game_state.set_data(GameStateData::Play(PlayData::new(stage, width, height)), &mut event_writer);
 				}
 			}
@@ -138,6 +140,13 @@ fn update_gamestate(
 			}
 		}
 	}
+}
+
+fn load_starting_stage() -> u32 {
+	// liking rust here - this is so short and sweet!
+	let savedata = fs::read_to_string(STARTING_STAGE_PATH).expect("starting stage save data not found!");
+	let result = savedata.parse::<u32>().unwrap_or(0);
+	result
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -188,12 +197,14 @@ pub struct SnakePlayData {
 
 impl PlayData {
 	fn new(stage_id: u32, stage_width: usize, stage_height: usize) -> Self {
+		let gameplay_config = GameplayConfig::new(stage_id);
+		
 		Self {
 			stage_id,
-			goal: get_stage_goal(stage_id),
+			goal: gameplay_config.goal,
 			score: 0,
-			move_speed: 1.0, // 1.0 = default
-			move_speed_increment: 1.0, // 1.0 = default
+			move_speed: gameplay_config.start_speed, // 1.0 = default snake speed set in snake.rs
+			move_speed_increment: gameplay_config.speed_increment,
 			snake1_data: SnakePlayData::new(),
 			snake2_data: SnakePlayData::new(),
 			snake3_data: SnakePlayData::new(),
@@ -219,11 +230,21 @@ impl SnakePlayData {
 	}
 }
 
-fn get_stage_goal(stage_id: u32) -> u32 {
-	match stage_id {
-		0 => { 1 }
-		1 => { 3 }
-		2 => { 10 }
-		_ => { 3 }
+#[derive(Debug, Clone)]
+struct GameplayConfig {
+	goal: u32,
+	start_speed: f32,
+	speed_increment: f32,
+}
+
+impl GameplayConfig {
+	fn new(stage_id: u32) -> Self {
+		match stage_id {
+			0 => { Self { goal: 1, start_speed: 1.0, speed_increment: 0.1 } }
+			1 => { Self { goal: 5, start_speed: 1.0, speed_increment: 0.25 } }
+			2 => { Self { goal: 24, start_speed: 1.0, speed_increment: 0.1 } }
+			3 => { Self { goal: 8, start_speed: 3.0, speed_increment: 0.2 } }
+			_ => { Self { goal: 10, start_speed: 1.0, speed_increment: 0.1 } }
+		}
 	}
 }
