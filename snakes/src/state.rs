@@ -4,6 +4,7 @@ use std::fs;
 
 const LAST_STAGE: u32 = 3;
 const STARTING_STAGE_PATH: &str = "./assets/save_data/starting_stage.txt";
+const DEFAULT_MOVE_INTERVAL: f32 = 0.5;
 
 pub struct StatePlugin;
 
@@ -175,6 +176,8 @@ pub struct PlayData {
 	pub score: u32,
 	pub move_speed: f32,
 	pub move_speed_increment: f32,
+	pub move_interval: f32,
+	pub last_move_time: f32,
 	pub snake1_data: SnakePlayData,
 	pub snake2_data: SnakePlayData,
 	pub snake3_data: SnakePlayData,
@@ -186,13 +189,15 @@ pub struct PlayData {
 impl PlayData {
 	fn new(stage_id: u32, stage_width: usize, stage_height: usize) -> Self {
 		let gameplay_config = GameplayConfig::new(stage_id);
-		
+
 		Self {
 			stage_id,
 			goal: gameplay_config.goal,
 			score: 0,
 			move_speed: gameplay_config.start_speed, // 1.0 = default snake speed set in snake.rs
 			move_speed_increment: gameplay_config.speed_increment,
+			move_interval: DEFAULT_MOVE_INTERVAL / gameplay_config.start_speed,
+			last_move_time: 0.0,
 			snake1_data: SnakePlayData::new(),
 			snake2_data: SnakePlayData::new(),
 			snake3_data: SnakePlayData::new(),
@@ -200,6 +205,11 @@ impl PlayData {
 			crash: false,
 			all_falling: false,
 		}
+	}
+
+	pub fn increment_speed(&mut self) {
+		self.move_speed += self.move_speed_increment;
+		self.move_interval = if self.move_speed > 0.01 { DEFAULT_MOVE_INTERVAL / self.move_speed } else { DEFAULT_MOVE_INTERVAL / 0.01 };
 	}
 }
 
@@ -243,10 +253,10 @@ impl GameplayConfig {
 	fn new(stage_id: u32) -> Self {
 		match stage_id {
 			0 => { Self { goal: 1, start_speed: 1.0, speed_increment: 0.1 } }
-			1 => { Self { goal: 5, start_speed: 1.0, speed_increment: 0.25 } }
-			2 => { Self { goal: 24, start_speed: 2.0, speed_increment: 0.1 } }
-			3 => { Self { goal: 12, start_speed: 3.0, speed_increment: 0.2 } }
-			_ => { Self { goal: 10, start_speed: 1.0, speed_increment: 0.1 } }
+			1 => { Self { goal: 5, start_speed: 1.0, speed_increment: 0.12 } }
+			2 => { Self { goal: 24, start_speed: 2.0, speed_increment: 0.05 } }
+			3 => { Self { goal: 12, start_speed: 3.0, speed_increment: 0.1 } }
+			_ => { Self { goal: 10, start_speed: 1.0, speed_increment: 0.05 } }
 		}
 	}
 }

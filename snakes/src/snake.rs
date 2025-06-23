@@ -9,7 +9,6 @@ use std::time::Duration;
 const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_SEGMENT_SIZE: Vec3 = Vec3::new(0.68, 0.6, 0.68);
 const SNAKE_Y: f32 = 1.4;
-const DEFAULT_MOVE_INTERVAL: f32 = 0.5;
 const HIDDEN_COORDINATE: StageCoordinate = StageCoordinate::new(1000, 1000);
 
 const SNAKE_COLOR_1: Color = Color::srgb_u8(220, 100, 220);
@@ -46,8 +45,6 @@ pub struct Snake {
 	pub falling: bool,
 	pub fall_duration: u32,
 	pub segments: u32,
-	last_move_time: f32,
-	move_interval: f32,
 	stage_coordinate: StageCoordinate,
 	pub active: bool,
 	pub input_received: bool,
@@ -63,8 +60,6 @@ impl Snake {
 			falling: false,
 			fall_duration: 0,
 			segments: 0,
-			last_move_time: 0.0,
-			move_interval: 1.0,
 			stage_coordinate: HIDDEN_COORDINATE,
 			active,
 			input_received: false,
@@ -196,12 +191,7 @@ fn read_gamestate_events(
 						transform.translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
 					}
 				},
-				GameStateData::Play (play_data) => {
-					if play_data.move_speed > 0.1 {
-						snake.move_interval = DEFAULT_MOVE_INTERVAL / play_data.move_speed; 
-					} else {
-						snake.move_interval = DEFAULT_MOVE_INTERVAL;
-					}
+				GameStateData::Play (_play_data) => {
 				},
 				GameStateData::Win (_win_data) => {},
 				GameStateData::Death => {},
@@ -229,9 +219,7 @@ fn read_stage_events (
 						if snake_id == snake.id {
 							println!("snake {} had a lil snack!", snake_id);
 							snake.had_a_snack = true;
-							if play_data.move_speed > 0.1 {
-								snake.move_interval = DEFAULT_MOVE_INTERVAL / play_data.move_speed; 
-							}
+							play_data.increment_speed();
 						}
 					}
 				}
@@ -278,6 +266,8 @@ fn move_snakes(
 			}
 		}
 		GameStateData::Play (play_data) => {
+			let mut snakes_moved = false;
+			
 			for(mut snake, mut transform) in query {
 				let snake_data: &mut SnakePlayData = match snake.id {
 					1 => { &mut play_data.snake1_data }
@@ -293,7 +283,7 @@ fn move_snakes(
 				snake_data.segments = snake.segments;
 
 				if !snake.active { continue; }
-				if snake.last_move_time + snake.move_interval >= time.elapsed_secs() { continue; }
+				if play_data.last_move_time + play_data.move_interval >= time.elapsed_secs() { continue; }
 
 				let next_translation: Vec3;
 
@@ -326,13 +316,13 @@ fn move_snakes(
 				snake_data.evaluate_move = true;
 				
 				transform.translation = next_translation;
-				snake.last_move_time = time.elapsed_secs();
 
 				play_data.snakes_walkable_mask.set(&snake_data.coordinate, false);
 				if snake.segments == 0 { play_data.snakes_walkable_mask.set(&snake_data.previous_coordinate, true); }
+				snakes_moved = true;
 			}
 
-	
+			if snakes_moved { play_data.last_move_time = time.elapsed_secs(); }
 
 			if DEBUG_SNAKES_WALKABLE_MASK {
 				println!(" ");
