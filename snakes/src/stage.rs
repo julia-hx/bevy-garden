@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::state::{ GameState, GameStateData, GameStateEvent, PlayData };
+use crate::state::{ GameState, GameStateData, GameStateEvent, PlayData, WinData };
 use std::fs;
 use rand::prelude::*;
 
@@ -7,6 +7,7 @@ const LAYOUT_FILEPATH: &str = "./assets/stage_layouts/stage_";
 const TILE_SIZE: f32 = 0.94;
 const DEFAULT_SPOTLIGHT_INTENSITY: f32 = 8_000_000.0;
 const DEFAULT_STAGE_SETTING_INTERVAL: f32 = 0.5;
+const GLITTER_INTERVAL: f32 = 0.03;
 
 pub struct StagePlugin;
 
@@ -69,6 +70,7 @@ struct Stage {
 	colors: StageColors,
 	walkable: StageWalkableMask,
 	snack_coordinate: StageCoordinate,
+	snack_spawntime: f32,
 }
 
 #[derive(Component)]
@@ -262,7 +264,7 @@ fn read_gamestate_events(
 			GameStateData::Play (_play_data)=> {
 				
 			}
-			GameStateData::Win => {
+			GameStateData::Win ( _win_data)=> {
 				event_writer.write(StageEvent { data: StageEventData::ClearSnack });
 			}
 			GameStateData::Death => {
@@ -343,7 +345,7 @@ fn update_stage(
 							1 => { if play_data.snake1_data.falling { continue; } }
 							2 => { if play_data.snake2_data.falling { continue; } }
 							3 => { if play_data.snake3_data.falling { continue; } }
-						    _=> ()
+						    _=> {}
 						}
 						event_writer.write(StageEvent { data: StageEventData::SnakeFalling(snake_id) });
 						continue;
@@ -361,6 +363,7 @@ fn update_stage(
 						}
 						event_writer.write(StageEvent { data: StageEventData::SnackEaten(snake_id) });
 						stage.snack_coordinate = stage.get_next_snack_coordinate(play_data);
+						stage.snack_spawntime = time.elapsed_secs();
 						event_writer.write(StageEvent { data: StageEventData::SpawnSnack(stage.snack_coordinate) });
 						continue;
 					}
@@ -373,6 +376,13 @@ fn update_stage(
 					}
 				}
 				return;
+			}
+			GameStateData::Win (win_data) => {
+				if time.elapsed_secs() >= stage.snack_spawntime + GLITTER_INTERVAL {
+					stage.snack_coordinate = stage.get_next_snack_coordinate(&win_data.play_data);
+					stage.snack_spawntime = time.elapsed_secs();
+					event_writer.write(StageEvent { data: StageEventData::SpawnSnack(stage.snack_coordinate) });
+				}
 			}
 			_=> {}
 		}
@@ -432,6 +442,7 @@ impl Stage {
 			colors: StageColors::new(),
 			walkable: StageWalkableMask::new(0, 0),
 			snack_coordinate: StageCoordinate::new(0, 0),
+			snack_spawntime: 0.0
 		}
 	}
 

@@ -1,6 +1,10 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-use crate::state::{ GameState, GameStateData, GameStateEvent, PlayData, SnakePlayData };
+use bevy::time::common_conditions::on_timer;
+
+use crate::state::{ GameState, GameStateData, GameStateEvent, SnakePlayData };
 use crate::stage::{ StageCoordinate, StageEvent, StageEventData };
+
+use std::time::Duration;
 
 const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_SEGMENT_SIZE: Vec3 = Vec3::new(0.68, 0.6, 0.68);
@@ -28,6 +32,7 @@ impl Plugin for SnakePlugin {
 				spawn_segments,
 				move_segments,
 				despawn_segments,
+				evaluate_all_falling.run_if(on_timer(Duration::from_secs(2))),
 			).chain()
 		);
 	}
@@ -44,13 +49,13 @@ pub struct Snake {
 	last_move_time: f32,
 	move_interval: f32,
 	stage_coordinate: StageCoordinate,
-	pub activated: bool,
+	pub active: bool,
 	pub input_received: bool,
 	pub had_a_snack: bool,
 }
 
 impl Snake {
-	fn new(id: u32, activated: bool) -> Self {
+	fn new(id: u32, active: bool) -> Self {
 		Self {
 			id,
 			direction: Direction::Up,
@@ -61,7 +66,7 @@ impl Snake {
 			last_move_time: 0.0,
 			move_interval: 1.0,
 			stage_coordinate: HIDDEN_COORDINATE,
-			activated,
+			active,
 			input_received: false,
 			had_a_snack: false
 		}
@@ -187,7 +192,7 @@ fn read_gamestate_events(
 					snake.stage_coordinate = HIDDEN_COORDINATE;
 				},
 				GameStateData::Start => {
-					if snake.activated {
+					if snake.active {
 						transform.translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
 					}
 				},
@@ -198,7 +203,7 @@ fn read_gamestate_events(
 						snake.move_interval = DEFAULT_MOVE_INTERVAL;
 					}
 				},
-				GameStateData::Win => {},
+				GameStateData::Win (_win_data) => {},
 				GameStateData::Death => {},
 				GameStateData::Reset(_counter) => {}
 			}
@@ -212,13 +217,6 @@ fn read_stage_events (
 	mut game_state: ResMut<GameState>,
 	mut query: Query<&mut Snake>,
 ) {
-	let is_play: bool;
-	let mut play_move_speed = 1.0;
-	if let GameStateData::Play(play_data) = &mut game_state.data {
-		is_play = true;
-		play_move_speed = play_data.move_speed;
-	} else { is_play = false; }
-
 	for e in stage_events.read() {
 		for mut snake in &mut query {
 			match e.data {
@@ -227,20 +225,22 @@ fn read_stage_events (
 					snake.stage_coordinate = spawn_point_data.spawn_point;
 				}
 				StageEventData::SnackEaten(snake_id) => {
-					if !is_play { continue; }
-					if snake_id == snake.id {
-						println!("snake {} had a lil snack!", snake_id);
-						snake.had_a_snack = true;
-						if play_move_speed > 0.1 {
-							snake.move_interval = DEFAULT_MOVE_INTERVAL / play_move_speed; 
+					if let GameStateData::Play(play_data) = &mut game_state.data {
+						if snake_id == snake.id {
+							println!("snake {} had a lil snack!", snake_id);
+							snake.had_a_snack = true;
+							if play_data.move_speed > 0.1 {
+								snake.move_interval = DEFAULT_MOVE_INTERVAL / play_data.move_speed; 
+							}
 						}
 					}
 				}
 				StageEventData::SnakeFalling(snake_id) => {
-					if !is_play { continue; }
-					if snake_id == snake.id {
-						snake.falling = true;
-						println!("snake {} is falling!", snake_id);
+					if let GameStateData::Play(_play_data) = &mut game_state.data {
+						if snake_id == snake.id {
+							snake.falling = true;
+							println!("snake {} is falling!", &snake_id);
+						}
 					}
 				}
 				_ => {}
@@ -271,8 +271,8 @@ fn move_snakes(
 	match &mut game_state.data {
 		GameStateData::Start => {
 			for(mut snake, mut transform) in query {
-				if !snake.activated && snake.input_received { 
-					snake.activated = true;
+				if !snake.active && snake.input_received { 
+					snake.active = true;
 					transform.translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
 				}
 			}
@@ -286,13 +286,13 @@ fn move_snakes(
 					_=> { return; }
 				};
 
-				snake_data.active = snake.activated;
+				snake_data.active = snake.active;
 				snake_data.falling = snake.falling;
 				snake_data.fall_duration = snake.fall_duration;
 				snake_data.previous_coordinate = snake.stage_coordinate;
 				snake_data.segments = snake.segments;
 
-				if !snake.activated { continue; }
+				if !snake.active { continue; }
 				if snake.last_move_time + snake.move_interval >= time.elapsed_secs() { continue; }
 
 				let next_translation: Vec3;
@@ -331,6 +331,8 @@ fn move_snakes(
 				play_data.snakes_walkable_mask.set(&snake_data.coordinate, false);
 				if snake.segments == 0 { play_data.snakes_walkable_mask.set(&snake_data.previous_coordinate, true); }
 			}
+
+	
 
 			if DEBUG_SNAKES_WALKABLE_MASK {
 				println!(" ");
@@ -463,5 +465,22 @@ fn is_opposite_direction(a: &Direction, b: &Direction) -> bool {
 		(Direction::Left, Direction::Right) => { true }
 		(Direction::Right, Direction::Left) => { true }
 		(_, _) => { false }
+	}
+}
+
+fn evaluate_all_falling(
+	mut game_state: ResMut<GameState>,
+	query: Query<&mut Snake>,
+) {
+	if let GameStateData::Play(play_data) = &mut game_state.data {
+		println!("all falling?");
+		let mut all_falling = true;
+		for snake in &query {
+			if snake.active && !snake.falling {
+				all_falling = false;
+				break;
+			}
+		}
+		play_data.all_falling = all_falling;
 	}
 }

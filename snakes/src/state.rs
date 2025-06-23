@@ -23,7 +23,7 @@ pub enum GameStateData {
 	Setup(SetupData),
 	Start,
 	Play(PlayData),
-	Win,
+	Win(WinData),
 	Death,
 	Reset(u32), // counter for now
 }
@@ -33,7 +33,7 @@ pub enum GameStateData {
 // the other is passively available as a global resource - 
 // but both are meant to always contain the same data.
 // A better solution would be for the Resource to own the data, 
-// and the events to propagate a cloneable or copyable ref.
+// and the events to propagate a ref - but what lifetime?
 
 #[derive(Event)]
 pub struct GameStateEvent {
@@ -66,8 +66,8 @@ impl GameState {
 			GameStateData::Play (play_data) => {
 				println!("game state: Play stage {} goal {}", &play_data.stage_id, &play_data.goal);
 			},
-			GameStateData::Win => {
-				println!("game state: Win");
+			GameStateData::Win (win_data) => {
+				println!("game state: Win stage {}", &win_data.play_data.stage_id);
 			},
 			GameStateData::Death => {
 				println!("game state: Death");
@@ -76,7 +76,6 @@ impl GameState {
 				println!("game state: Reset");
 			}
 		}
-		
 	}
 }
 
@@ -112,12 +111,13 @@ fn update_gamestate(
 		GameStateData::Play (play_data) => {
 			if play_data.score >= play_data.goal {
 				println!("Cleared stage {}!", play_data.stage_id);
-				game_state.set_data(GameStateData::Win, &mut event_writer);
-			} else if play_data.crash {
+				let win_data = WinData::new(play_data.clone());
+				game_state.set_data(GameStateData::Win(win_data), &mut event_writer);
+			} else if play_data.crash || play_data.all_falling {
 				game_state.set_data(GameStateData::Death, &mut event_writer);
 			}
 		}
-		GameStateData::Win => {
+		GameStateData::Win (win_data) => {
 			for e in key_events.read() {
 				if e.key_code == KeyCode::Space {
 					if game_state.stage < LAST_STAGE { game_state.stage += 1 };
@@ -180,20 +180,8 @@ pub struct PlayData {
 	pub snake3_data: SnakePlayData,
 	pub snakes_walkable_mask: StageWalkableMask,
 	pub crash: bool,
+	pub all_falling: bool,
 }
-
-#[derive(Debug, Clone)]
-pub struct SnakePlayData {
-	pub active: bool,
-	pub coordinate: StageCoordinate,
-	pub previous_coordinate: StageCoordinate,
-	pub had_a_snack: bool,
-	pub falling: bool,
-	pub fall_duration: u32,
-	pub segments: u32,
-	pub refresh_segments: bool,
-	pub evaluate_move: bool,
-}	
 
 impl PlayData {
 	fn new(stage_id: u32, stage_width: usize, stage_height: usize) -> Self {
@@ -210,9 +198,23 @@ impl PlayData {
 			snake3_data: SnakePlayData::new(),
 			snakes_walkable_mask: StageWalkableMask::new(stage_width, stage_height),
 			crash: false,
+			all_falling: false,
 		}
 	}
 }
+
+#[derive(Debug, Clone)]
+pub struct SnakePlayData {
+	pub active: bool,
+	pub coordinate: StageCoordinate,
+	pub previous_coordinate: StageCoordinate,
+	pub had_a_snack: bool,
+	pub falling: bool,
+	pub fall_duration: u32,
+	pub segments: u32,
+	pub refresh_segments: bool,
+	pub evaluate_move: bool,
+}	
 
 impl SnakePlayData {
 	fn new() -> Self {
@@ -242,9 +244,22 @@ impl GameplayConfig {
 		match stage_id {
 			0 => { Self { goal: 1, start_speed: 1.0, speed_increment: 0.1 } }
 			1 => { Self { goal: 5, start_speed: 1.0, speed_increment: 0.25 } }
-			2 => { Self { goal: 24, start_speed: 1.0, speed_increment: 0.1 } }
-			3 => { Self { goal: 8, start_speed: 3.0, speed_increment: 0.2 } }
+			2 => { Self { goal: 24, start_speed: 2.0, speed_increment: 0.1 } }
+			3 => { Self { goal: 12, start_speed: 3.0, speed_increment: 0.2 } }
 			_ => { Self { goal: 10, start_speed: 1.0, speed_increment: 0.1 } }
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct WinData {
+	pub play_data: PlayData, // data from the stage that was won
+}
+
+impl WinData {
+	fn new(play_data: PlayData) -> Self {
+		Self {
+			play_data,
 		}
 	}
 }
