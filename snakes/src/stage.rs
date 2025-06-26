@@ -304,18 +304,27 @@ fn update_stage(
 				let cc = clear_color.0.mix(&stage.colors.clear_color, time.delta_secs());
 				clear_color.0 = cc;
 				// tick stage setting
-				stage.update_set_stage(&mut event_writer, &mut commands, &mut meshes, &mut materials, time.elapsed_secs());
+				if setup_data.fast_forward {
+					for _i in 0..stage.get_tiles_left() {
+						stage.update_set_stage(&mut event_writer, &mut commands, &mut meshes, &mut materials, time.elapsed_secs(), setup_data.fast_forward);
+					}
+				} else {
+					stage.update_set_stage(&mut event_writer, &mut commands, &mut meshes, &mut materials, time.elapsed_secs(), setup_data.fast_forward);
+				}
 
 				if !stage.stage_setting_data.in_progress {
-					setup_data.setup_done = true; // don't cross the event streams, apparantly!
+					setup_data.setup_done = true; // don't cross the event streams, maybe?
 					// accessing state data directly causes less bugs than writing and reading events in opposite direction between stage / state / snake.
 					// state -> stage & snake / stage -> snake works.
 					// want to try a single event stream with many different types in some other garden project.
+					//
+					// ... also would like to make sure this is actually the thing causing problems.
 				}
 				
 				return;
 			}
 			GameStateData::Start => {
+				
 				// snap into place if not already
 				transform.translation = stage.camera_translation;
 				transform.look_at(Vec3::new(stage.camera_translation.x, 0.0, stage.camera_translation.z), -Vec3::Z);
@@ -505,10 +514,11 @@ impl Stage {
 		meshes: &mut ResMut<Assets<Mesh>>,
 		materials: &mut ResMut<Assets<StandardMaterial>>,
 		time: f32,
+		fast_forward: bool,
 	) {
 		let data = &mut self.stage_setting_data;
 		if !data.in_progress { return; }
-		if time < data.tile_placed_time + data.interval { return; }
+		if !fast_forward && time < data.tile_placed_time + data.interval { return; }
 		
 		// set tile at current x and y
 		let c = data.current_line.chars()
@@ -604,6 +614,10 @@ impl Stage {
 			data.interval = 0.001; // tick more or less every frame for the rest
 		}
 		data.tile_placed_time = time;
+	}
+
+	fn get_tiles_left(&mut self) -> usize {
+		self.height * self.width - ( (self.stage_setting_data.x + 1) + (self.stage_setting_data.y + 1) )
 	}
 
 	fn get_next_snack_coordinate(&mut self, play_data: &PlayData) -> StageCoordinate {

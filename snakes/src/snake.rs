@@ -183,6 +183,7 @@ fn read_gamestate_events(
 					snake.fall_duration = 0;
 					snake.segments = 0;
 					snake.last_direction_moved = Direction::None;
+					snake.direction = Direction::Up;
 					snake.input_received = false;
 					snake.stage_coordinate = HIDDEN_COORDINATE;
 				},
@@ -195,7 +196,9 @@ fn read_gamestate_events(
 				},
 				GameStateData::Win (_win_data) => {},
 				GameStateData::Death => {},
-				GameStateData::Reset(_counter) => {}
+				GameStateData::Reset(_counter) => {
+					transform.translation = Vec3::new(HIDDEN_COORDINATE.x as f32, SNAKE_Y, HIDDEN_COORDINATE.y as f32);
+				}
 			}
 		}
 	}
@@ -329,11 +332,6 @@ fn move_snakes(
 				play_data.snakes_walkable_mask.print();
 			}
 		}
-		GameStateData::Reset(_counter) => {
-			for(_snake, mut transform) in query {
-				transform.translation = Vec3::new(HIDDEN_COORDINATE.x as f32, SNAKE_Y, HIDDEN_COORDINATE.y as f32);
-			}
-		}
 		_ => {}
 	}
 }
@@ -393,7 +391,7 @@ fn move_segments(
 			// not all segments are moved every "move tick".
 			// if a segment has been on the same coordinate for the same amount of moves
 			// as the snake has segments, time to move it up behind the snake head!
-			// using > instead of >= because 1-indexed looping.
+			// using > instead of >= because of 1-indexed looping.
 			if segment.move_counter > snake_data.segments {
 				// we can mark the current coordinate as free before moving:
 				play_data.snakes_walkable_mask.set(&segment.coordinate, true);
@@ -404,7 +402,7 @@ fn move_segments(
 
 			if snake_data.had_a_snack { 
 				// skip one transform update turn when we have a newly spawned segment - 
-				// it will appear behind the snake head when it moves.
+				// it will appear behind the snake head when that moves.
 				continue;
 			}
 
@@ -434,17 +432,14 @@ fn move_segments(
 }
 
 fn despawn_segments(
-	mut game_state: ResMut<GameState>,
+	game_state: ResMut<GameState>,
 	query: Query<Entity, With<Segment>>,
 	mut commands: Commands,
 ) {
-	match &mut game_state.data {
-		GameStateData::Reset(_counter) => {
-			for entity in query {
-				commands.entity(entity).despawn();
-			}
+	if let GameStateData::Reset(_counter) = game_state.data {
+		for entity in query {
+			commands.entity(entity).despawn();
 		}
-		_ => {}
 	}
 }
 

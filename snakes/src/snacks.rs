@@ -29,7 +29,7 @@ fn read_stage_events(
 				for entity in query {
 					commands.entity(entity).despawn();
 				}
-				println!("...spawning next snack!");
+				// println!("...spawning next snack!");
 				commands.spawn((
 					Mesh3d(meshes.add(Tetrahedron::default())),
 					MeshMaterial3d(materials.add(Color::srgb_u8(220, 220, 100))),
@@ -42,7 +42,7 @@ fn read_stage_events(
 				));
 			}
 			StageEventData::ClearSnack => {
-				println!("... clear snack");
+				// println!("... clear snack");
 				for entity in query {
 					commands.entity(entity).despawn();
 				}

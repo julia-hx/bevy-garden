@@ -29,6 +29,10 @@ pub enum GameStateData {
 	Reset(u32), // counter for now
 }
 
+// First of all I wasn't aware of the State utils in bevy when starting to make this,
+// so alot of the state flow here could be simplified using that
+// and splitting "update" systems into smaller state specific systems.
+
 // There is some duplication with GameStateEvent vs GameState as a resource.
 // While one is used to actively trigger discrete global events,
 // the other is passively available as a global resource - 
@@ -97,7 +101,22 @@ fn update_gamestate(
 			game_state.set_data(initial_setup_data, &mut event_writer);
 		}
 		GameStateData::Setup(setup_data) => {
-			if setup_data.setup_done { game_state.set_data(GameStateData::Start, &mut event_writer); }
+			for e in key_events.read() {
+				if e.key_code == KeyCode::Space {
+					setup_data.fast_forward = true;
+				}
+			}
+
+			let go_to_start;
+
+			if setup_data.fast_forward {
+				go_to_start = setup_data.setup_done && setup_data.fast_forward_buffer >= 10; // insert a couple of "buffer" frames so input events don't overlap - tried key_events.clear()
+				setup_data.fast_forward_buffer += 1;
+			} else { go_to_start = setup_data.setup_done; }
+			
+			if go_to_start {
+				game_state.set_data(GameStateData::Start, &mut event_writer); 
+			}
 		}
 		GameStateData::Start => {
 			for e in key_events.read() {
@@ -156,6 +175,8 @@ pub struct SetupData {
 	pub spotlight_translation: Vec3,
 	pub spotlight_intensity_multiplier: f32,
 	pub setup_done: bool,
+	pub fast_forward: bool,
+	pub fast_forward_buffer: u32,
 }
 
 impl SetupData {
@@ -165,6 +186,8 @@ impl SetupData {
 			spotlight_translation: Vec3::new(6.0, 8.0, 4.0),
 			spotlight_intensity_multiplier: 1.0,
 			setup_done: false,
+			fast_forward: false,
+			fast_forward_buffer: 0,
 		}
 	}
 }
@@ -251,10 +274,10 @@ struct GameplayConfig {
 
 impl GameplayConfig {
 	fn new(stage_id: u32) -> Self {
-		match stage_id {
+		match stage_id { // TODO: shared config storage
 			0 => { Self { goal: 1, start_speed: 1.0, speed_increment: 0.1 } }
 			1 => { Self { goal: 5, start_speed: 1.0, speed_increment: 0.12 } }
-			2 => { Self { goal: 24, start_speed: 2.0, speed_increment: 0.05 } }
+			2 => { Self { goal: 24, start_speed: 1.8, speed_increment: 0.04 } }
 			3 => { Self { goal: 12, start_speed: 3.0, speed_increment: 0.1 } }
 			_ => { Self { goal: 10, start_speed: 1.0, speed_increment: 0.05 } }
 		}
