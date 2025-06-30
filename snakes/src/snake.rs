@@ -6,6 +6,8 @@ use crate::stage::{ StageCoordinate, StageEvent, StageEventData };
 
 use std::time::Duration;
 
+// snake pluging: snakes input and movement for up to 3 players
+
 const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_SEGMENT_SIZE: Vec3 = Vec3::new(0.68, 0.6, 0.68);
 const SNAKE_Y: f32 = 1.4;

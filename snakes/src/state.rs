@@ -1,6 +1,9 @@
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-use crate::stage::{ StageCoordinate, StageWalkableMask};
 use std::fs;
+
+use crate::stage::{ StageCoordinate, StageWalkableMask};
+
+// state plugin: game loop and shared data.
 
 const LAST_STAGE: u32 = 3;
 const STARTING_STAGE_PATH: &str = "./assets/save_data/starting_stage.txt";
@@ -29,8 +32,8 @@ pub enum GameStateData {
 	Reset(u32), // counter for now
 }
 
-// First of all I wasn't aware of the State utils in bevy when starting to make this,
-// so alot of the state flow here could be simplified using that
+// I wasn't aware of the State utils in bevy when starting to make this,
+// so a lot of the state flow here could be simplified using that
 // and splitting "update" systems into smaller state specific systems.
 
 // There is some duplication with GameStateEvent vs GameState as a resource.
@@ -54,7 +57,11 @@ pub struct GameState {
 }
 
 impl GameState {
-	fn set_data(&mut self, data: GameStateData, event_writer: &mut EventWriter<GameStateEvent>) {
+	fn set_data(&mut self, 
+		data: GameStateData,
+		event_writer: &mut EventWriter<GameStateEvent>,
+	)
+	{
 		event_writer.write(GameStateEvent { data: data.clone() });
 		self.data = data;
 
@@ -64,6 +71,7 @@ impl GameState {
 			}
 			GameStateData::Setup (setup_data) => {
 				println!("game state: Setup stage {}", &setup_data.stage_id);
+
 			},
 			GameStateData::Start => {
 				println!("game state: Start");
@@ -89,10 +97,15 @@ fn init_gamestate() {
 }
 
 fn update_gamestate(
-	mut event_writer: EventWriter<GameStateEvent>, 
+	mut event_writer: EventWriter<GameStateEvent>,
 	mut game_state: ResMut<GameState>,
 	mut key_events: EventReader<KeyboardInput>,
 ) {
+	// this is similar to the classic gamestate switch in engines like unity - 
+	// makes the branching readable inside of one function.
+	// using bevy State instead the branching would move to Plugin.build(),
+	// separating it completely from each of the branch cases which would be one system each.
+
 	match &mut game_state.data {
 		GameStateData::Init => {
 			let saved_stage = load_starting_stage();
@@ -164,7 +177,7 @@ fn update_gamestate(
 
 fn load_starting_stage() -> u32 {
 	// liking rust here - this is so short and sweet!
-	let savedata = fs::read_to_string(STARTING_STAGE_PATH).expect("starting stage save data not found!");
+	let savedata = fs::read_to_string(STARTING_STAGE_PATH).unwrap_or_default();
 	let result = savedata.parse::<u32>().unwrap_or(0);
 	result
 }

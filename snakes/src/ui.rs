@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 
+// ui plugin: only displays text.
+// set via events.
+
 pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
@@ -9,13 +12,12 @@ impl Plugin for UIPlugin {
 }
 
 #[derive(Component, Copy, Clone)]
-#[require(Node)]
-struct TextElement {
+//#[require(Node)]
+struct UIElement {
 	id: &'static str,
-
 }
 
-impl TextElement {
+impl UIElement {
 	fn new(id: &'static str) -> Self {
 		Self {
 			id,
@@ -25,8 +27,8 @@ impl TextElement {
 
 fn init_ui_fields(mut commands: Commands) {
 	commands.spawn((
-		TextElement::new("test"),
-		Text::new("hello bevy!"),
+		UIElement::new("stage"),
+		Text::new("stage 0"),
 		Node {
             position_type: PositionType::Absolute,
             top: Val::Px(10.0),
@@ -35,4 +37,59 @@ fn init_ui_fields(mut commands: Commands) {
         },
 
 	));
+
+	commands.spawn((
+		Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            right: Val::Px(10.0),
+            ..default()
+        },
+	)).with_children(|builder| {
+		builder.spawn((
+			UIElement::new("score"),
+			Text::new("0 of 0"),
+		));
+	});
+
+	let container = commands.spawn((
+		Node {
+			width: Val::Percent(100.0),
+			height:Val::Percent(100.0),
+			flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+			..default()	
+		},
+	)).id();
+
+	let header = commands.spawn((
+		Node {
+            align_items: AlignItems::Center,
+			justify_content: JustifyContent::SpaceEvenly,
+			top: Val::Percent(25.0),
+            ..default()
+        },
+	)).with_children(|builder| {
+		builder.spawn((
+			UIElement::new("header"),
+			Text::new("ready?"),
+		));
+	}).id();
+
+	let sub_header = commands.spawn((
+		Node {
+            align_items: AlignItems::Center,
+			justify_content: JustifyContent::SpaceEvenly,
+			top: Val::Percent(28.0),
+            ..default()
+        },
+	)).with_children(|builder| {
+		builder.spawn((
+			UIElement::new("sub_header"),
+			Text::new("well?"),
+		));
+	}).id();
+
+	commands.entity(container).add_child(header);
+	commands.entity(container).add_child(sub_header);
 }

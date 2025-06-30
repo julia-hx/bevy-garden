@@ -3,6 +3,8 @@ use crate::stage::{ StageEvent, StageEventData };
 
 const SNACK_Y: f32 = 1.4;
 
+// snacks plugin: passive plugin - snacks spawn, rotate, despawn.
+
 pub struct SnacksPlugin;
 
 impl Plugin for SnacksPlugin {

@@ -9,6 +9,9 @@ const DEFAULT_SPOTLIGHT_INTENSITY: f32 = 8_000_000.0;
 const DEFAULT_STAGE_SETTING_INTERVAL: f32 = 0.5;
 const GLITTER_INTERVAL: f32 = 0.03;
 
+// stage plugin: set stage from textfile data,
+// evaluate snake movements against walkable masks and snack location.
+
 pub struct StagePlugin;
 
 impl Plugin for StagePlugin {
@@ -366,6 +369,7 @@ fn update_stage(
 						play_data.move_speed += play_data.move_speed_increment;
 						println!("... score is now {} of {}", play_data.score, play_data.goal);
 						println!("... move speed is now {}", play_data.move_speed);
+						// update ui
 						if play_data.score >= play_data.goal { 
 							event_writer.write(StageEvent { data: StageEventData::ClearSnack });
 							continue;
