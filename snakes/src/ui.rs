@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::state::*;
 
 // ui plugin: only displays text.
 // set via events.
@@ -7,12 +8,21 @@ pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
 	fn build(&self, app: &mut App) {
-		app.add_systems(Startup, init_ui_fields);
+		app.add_event::<UIEvent>();
+		app.add_systems(Startup, init_ui_elements);
+		app.add_systems(Update, read_ui_events);
 	}
 }
 
+#[derive(Event)]
+pub struct UIEvent
+{
+	pub id: &'static str,
+	pub text: String,
+}
+
 #[derive(Component, Copy, Clone)]
-//#[require(Node)]
+#[require(Node)]
 struct UIElement {
 	id: &'static str,
 }
@@ -25,7 +35,7 @@ impl UIElement {
 	}
 }
 
-fn init_ui_fields(mut commands: Commands) {
+fn init_ui_elements(mut commands: Commands) {
 	commands.spawn((
 		UIElement::new("stage"),
 		Text::new("stage 0"),
@@ -66,13 +76,13 @@ fn init_ui_fields(mut commands: Commands) {
 		Node {
             align_items: AlignItems::Center,
 			justify_content: JustifyContent::SpaceEvenly,
-			top: Val::Percent(25.0),
+			top: Val::Percent(10.0),
             ..default()
         },
 	)).with_children(|builder| {
 		builder.spawn((
 			UIElement::new("header"),
-			Text::new("ready?"),
+			Text::new("header"),
 		));
 	}).id();
 
@@ -80,16 +90,30 @@ fn init_ui_fields(mut commands: Commands) {
 		Node {
             align_items: AlignItems::Center,
 			justify_content: JustifyContent::SpaceEvenly,
-			top: Val::Percent(28.0),
+			top: Val::Percent(80.0),
             ..default()
         },
 	)).with_children(|builder| {
 		builder.spawn((
 			UIElement::new("sub_header"),
-			Text::new("well?"),
+			Text::new("sub_header"),
 		));
 	}).id();
 
 	commands.entity(container).add_child(header);
 	commands.entity(container).add_child(sub_header);
+}
+
+fn read_ui_events(
+	mut ui_events: EventReader<UIEvent>,
+	mut query: Query<(&UIElement, &mut Text)>,
+) {
+	for e in ui_events.read() {
+		for (element, mut text) in &mut query {
+			if e.id == element.id {
+				text.clear();
+				text.0 = e.text.clone();
+			}
+		}
+	} 
 }

@@ -364,9 +364,10 @@ fn update_stage(
 					}
 					// snack eaten?
 					if snake_coordinate.equals(&stage.snack_coordinate) {
-						// increment score and speed
+						// increase score and movement speed, flag that it's time to update ui
 						play_data.score += 1;
 						play_data.move_speed += play_data.move_speed_increment;
+						play_data.someone_had_a_snack = true;
 						println!("... score is now {} of {}", play_data.score, play_data.goal);
 						println!("... move speed is now {}", play_data.move_speed);
 						// update ui

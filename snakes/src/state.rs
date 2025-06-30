@@ -2,6 +2,7 @@ use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use std::fs;
 
 use crate::stage::{ StageCoordinate, StageWalkableMask};
+use crate::ui::{ UIEvent };
 
 // state plugin: game loop and shared data.
 
@@ -60,6 +61,7 @@ impl GameState {
 	fn set_data(&mut self, 
 		data: GameStateData,
 		event_writer: &mut EventWriter<GameStateEvent>,
+		ui_writer: &mut EventWriter<UIEvent>,
 	)
 	{
 		event_writer.write(GameStateEvent { data: data.clone() });
@@ -67,26 +69,43 @@ impl GameState {
 
 		match &self.data {
 			GameStateData::Init => {
-				println!("game state: Init");
+				println!("game state: Init");	
 			}
 			GameStateData::Setup (setup_data) => {
 				println!("game state: Setup stage {}", &setup_data.stage_id);
-
+				ui_writer.write(UIEvent{ id: "stage", text: format!("stage {}", &self.stage) });
 			},
 			GameStateData::Start => {
 				println!("game state: Start");
+				ui_writer.write(UIEvent{ id: "header", text: String::from("START") });
+				ui_writer.write(UIEvent{ id: "sub_header", text: String::from("press space") });
 			},
 			GameStateData::Play (play_data) => {
 				println!("game state: Play stage {} goal {}", &play_data.stage_id, &play_data.goal);
+				ui_writer.write(UIEvent{ id: "header", text: String::from("") });
+				ui_writer.write(UIEvent{ id: "sub_header", text: String::from("") });
+				ui_writer.write(UIEvent { id: "score", text: format!("0 of {}", play_data.goal) });
 			},
 			GameStateData::Win (win_data) => {
 				println!("game state: Win stage {}", &win_data.play_data.stage_id);
+				ui_writer.write(UIEvent{ id: "header", text: String::from("WIN!") });
+				ui_writer.write(UIEvent{ id: "sub_header", text: String::from("press space") });
+				ui_writer.write(UIEvent { id: "score", text: String::from("") });
+				ui_writer.write(UIEvent { id: "stage", text: String::from("") });
 			},
 			GameStateData::Death => {
 				println!("game state: Death");
+				ui_writer.write(UIEvent{ id: "header", text: String::from("DEATH") });
+				ui_writer.write(UIEvent{ id: "sub_header", text: String::from("press space") });
+				ui_writer.write(UIEvent { id: "score", text: String::from("") });
+				ui_writer.write(UIEvent { id: "stage", text: String::from("") });
 			},
 			GameStateData::Reset(_counter) => {
 				println!("game state: Reset");
+				ui_writer.write(UIEvent { id: "header", text: String::from("") });
+				ui_writer.write(UIEvent { id: "sub_header", text: String::from("") });
+				ui_writer.write(UIEvent { id: "score", text: String::from("") });
+				ui_writer.write(UIEvent { id: "stage", text: String::from("") });
 			}
 		}
 	}
@@ -98,6 +117,7 @@ fn init_gamestate() {
 
 fn update_gamestate(
 	mut event_writer: EventWriter<GameStateEvent>,
+	mut ui_writer: EventWriter<UIEvent>,
 	mut game_state: ResMut<GameState>,
 	mut key_events: EventReader<KeyboardInput>,
 ) {
@@ -108,10 +128,15 @@ fn update_gamestate(
 
 	match &mut game_state.data {
 		GameStateData::Init => {
+			ui_writer.write(UIEvent { id: "header", text: String::from("") });
+			ui_writer.write(UIEvent { id: "sub_header", text: String::from("") });
+			ui_writer.write(UIEvent { id: "score", text: String::from("") });
+			ui_writer.write(UIEvent { id: "stage", text: String::from("") });
+			
 			let saved_stage = load_starting_stage();
 			game_state.stage = if saved_stage <= LAST_STAGE { saved_stage } else { 0 };
 			let initial_setup_data = GameStateData::Setup(SetupData::new(game_state.stage));
-			game_state.set_data(initial_setup_data, &mut event_writer);
+			game_state.set_data(initial_setup_data, &mut event_writer, &mut ui_writer);
 		}
 		GameStateData::Setup(setup_data) => {
 			for e in key_events.read() {
@@ -128,7 +153,7 @@ fn update_gamestate(
 			} else { go_to_start = setup_data.setup_done; }
 			
 			if go_to_start {
-				game_state.set_data(GameStateData::Start, &mut event_writer); 
+				game_state.set_data(GameStateData::Start, &mut event_writer, &mut ui_writer); 
 			}
 		}
 		GameStateData::Start => {
@@ -137,7 +162,7 @@ fn update_gamestate(
 					let stage = game_state.stage;
 					let width = game_state.stage_width;
 					let height = game_state.stage_height;
-					game_state.set_data(GameStateData::Play(PlayData::new(stage, width, height)), &mut event_writer);
+					game_state.set_data(GameStateData::Play(PlayData::new(stage, width, height)), &mut event_writer, &mut ui_writer);
 				}
 			}
 		} 
@@ -145,23 +170,26 @@ fn update_gamestate(
 			if play_data.score >= play_data.goal {
 				println!("Cleared stage {}!", play_data.stage_id);
 				let win_data = WinData::new(play_data.clone());
-				game_state.set_data(GameStateData::Win(win_data), &mut event_writer);
+				game_state.set_data(GameStateData::Win(win_data), &mut event_writer, &mut ui_writer);
 			} else if play_data.crash || play_data.all_falling {
-				game_state.set_data(GameStateData::Death, &mut event_writer);
+				game_state.set_data(GameStateData::Death, &mut event_writer, &mut ui_writer);
+			} else if play_data.someone_had_a_snack {
+				ui_writer.write(UIEvent { id: "score", text: format!("{} of {}", play_data.score, play_data.goal) });
+				play_data.someone_had_a_snack = false;
 			}
 		}
-		GameStateData::Win (win_data) => {
+		GameStateData::Win (_win_data) => {
 			for e in key_events.read() {
 				if e.key_code == KeyCode::Space {
 					if game_state.stage < LAST_STAGE { game_state.stage += 1 };
-					game_state.set_data(GameStateData::Reset(0), &mut event_writer);
+					game_state.set_data(GameStateData::Reset(0), &mut event_writer, &mut ui_writer);
 				}
 			}
 		}
 		GameStateData::Death => {
 			for e in key_events.read() {
 				if e.key_code == KeyCode::Space {
-					game_state.set_data(GameStateData::Reset(0), &mut event_writer);
+					game_state.set_data(GameStateData::Reset(0), &mut event_writer, &mut ui_writer);
 				}
 			}
 		}
@@ -169,7 +197,7 @@ fn update_gamestate(
 			*counter += 1;
 			if *counter >= 30 {
 				let stage = game_state.stage;
-				game_state.set_data(GameStateData::Setup(SetupData::new(stage)), &mut event_writer);
+				game_state.set_data(GameStateData::Setup(SetupData::new(stage)), &mut event_writer, &mut ui_writer);
 			}
 		}
 	}
@@ -220,6 +248,7 @@ pub struct PlayData {
 	pub snakes_walkable_mask: StageWalkableMask,
 	pub crash: bool,
 	pub all_falling: bool,
+	pub someone_had_a_snack: bool,
 }
 
 impl PlayData {
@@ -240,6 +269,7 @@ impl PlayData {
 			snakes_walkable_mask: StageWalkableMask::new(stage_width, stage_height),
 			crash: false,
 			all_falling: false,
+			someone_had_a_snack: false,
 		}
 	}
 

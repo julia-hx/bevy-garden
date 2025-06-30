@@ -19,7 +19,6 @@ fn main() {
 			brightness: 250.0,
 			affects_lightmapped_meshes: false,
 		})
-		//.add_plugins((SnakePlugin, StagePlugin, SnacksPlugin, StatePlugin)) // using events between plugins, changing the order here breaks things
 		.add_plugins((StatePlugin, SnakePlugin, StagePlugin, SnacksPlugin, UIPlugin))
 		.add_plugins(DefaultPlugins)
 		.run();
