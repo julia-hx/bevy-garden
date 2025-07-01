@@ -236,11 +236,11 @@ impl SetupData {
 		Self {
 			stage_id,
 			spotlight_translation: match stage_id {
-				4 => Vec3::new(12.0, 12.0, 12.0),
+				4 => Vec3::new(12.0, 16.0, 12.0),
 				_ => Vec3::new(6.0, 8.0, 4.0),	
 			},	
 			spotlight_intensity_multiplier: match stage_id {
-				4 => 2.0,
+				4 => 2.4,
 				_ => 1.0,
 			},
 			setup_done: false,

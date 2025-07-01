@@ -6,7 +6,7 @@ use rand::prelude::*;
 const LAYOUT_FILEPATH: &str = "./assets/stage_layouts/stage_";
 const TILE_SIZE: f32 = 0.94;
 const DEFAULT_SPOTLIGHT_INTENSITY: f32 = 8_000_000.0;
-const DEFAULT_STAGE_SETTING_INTERVAL: f32 = 0.5;
+const DEFAULT_STAGE_SETTING_INTERVAL: f32 = 0.3;
 const GLITTER_INTERVAL: f32 = 0.03;
 
 // stage plugin: set stage from textfile data,
@@ -34,7 +34,6 @@ pub struct StageEvent {
 
 #[derive(Clone)]
 pub enum StageEventData {
-	Empty,
 	SetSnakeSpawnPoint(SnakeSpawnPointData),
 	SpawnSnack(StageCoordinate), // coordinate
 	ClearSnack,
