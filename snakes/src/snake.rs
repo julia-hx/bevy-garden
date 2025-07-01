@@ -179,8 +179,7 @@ fn read_gamestate_events(
 	for e in gamestate_events.read() {
 		for (mut snake, mut transform) in &mut query {
 			match &e.data {
-				GameStateData::Init => {},
-				GameStateData::Setup (_setup_data)=> { 
+				GameStateData::Setup (_setup_data) => { 
 					snake.falling = false;
 					snake.fall_duration = 0;
 					snake.segments = 0;
@@ -188,19 +187,16 @@ fn read_gamestate_events(
 					snake.direction = Direction::Up;
 					snake.input_received = false;
 					snake.stage_coordinate = HIDDEN_COORDINATE;
-				},
+				}
 				GameStateData::Start => {
 					if snake.active {
 						transform.translation = Vec3::new(snake.stage_coordinate.x as f32, SNAKE_Y, snake.stage_coordinate.y as f32);
 					}
-				},
-				GameStateData::Play (_play_data) => {
-				},
-				GameStateData::Win (_win_data) => {},
-				GameStateData::Death => {},
+				}
 				GameStateData::Reset(_counter) => {
 					transform.translation = Vec3::new(HIDDEN_COORDINATE.x as f32, SNAKE_Y, HIDDEN_COORDINATE.y as f32);
 				}
+				_ => {}
 			}
 		}
 	}
@@ -271,8 +267,10 @@ fn move_snakes(
 			}
 		}
 		GameStateData::Play (play_data) => {
-			let mut snakes_moved = false;
+			if play_data.last_move_time + play_data.move_interval >= time.elapsed_secs() { return; }
 			
+			let mut snakes_moved = false;
+
 			for(mut snake, mut transform) in query {
 				let snake_data: &mut SnakePlayData = match snake.id {
 					1 => { &mut play_data.snake1_data }
@@ -288,8 +286,6 @@ fn move_snakes(
 				snake_data.segments = snake.segments;
 
 				if !snake.active { continue; }
-				if play_data.last_move_time + play_data.move_interval >= time.elapsed_secs() { continue; }
-
 				let next_translation: Vec3;
 
 				if snake.falling {

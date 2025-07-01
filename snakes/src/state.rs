@@ -6,8 +6,8 @@ use crate::ui::{ UIEvent };
 
 // state plugin: game loop and shared data.
 
-const LAST_STAGE: u32 = 3;
 const STARTING_STAGE_PATH: &str = "./assets/save_data/starting_stage.txt";
+const STAGE_LAYOUTS_PATH: &str = "./assets/stage_layouts";
 const DEFAULT_MOVE_INTERVAL: f32 = 0.5;
 
 pub struct StatePlugin;
@@ -54,6 +54,7 @@ pub struct GameState {
 	pub stage: u32,
 	pub stage_width: usize,
 	pub stage_height: usize,
+	pub final_stage: u32,
 	pub data: GameStateData,
 }
 
@@ -133,8 +134,9 @@ fn update_gamestate(
 			ui_writer.write(UIEvent { id: "score", text: String::from("") });
 			ui_writer.write(UIEvent { id: "stage", text: String::from("") });
 			
+			game_state.final_stage = get_number_of_stages() - 1;
 			let saved_stage = load_starting_stage();
-			game_state.stage = if saved_stage <= LAST_STAGE { saved_stage } else { 0 };
+			game_state.stage = if saved_stage <= game_state.final_stage { saved_stage } else { 0 };
 			let initial_setup_data = GameStateData::Setup(SetupData::new(game_state.stage));
 			game_state.set_data(initial_setup_data, &mut event_writer, &mut ui_writer);
 		}
@@ -181,7 +183,7 @@ fn update_gamestate(
 		GameStateData::Win (_win_data) => {
 			for e in key_events.read() {
 				if e.key_code == KeyCode::Space {
-					if game_state.stage < LAST_STAGE { game_state.stage += 1 };
+					if game_state.stage < game_state.final_stage { game_state.stage += 1 };
 					game_state.set_data(GameStateData::Reset(0), &mut event_writer, &mut ui_writer);
 				}
 			}
@@ -210,6 +212,15 @@ fn load_starting_stage() -> u32 {
 	result
 }
 
+fn get_number_of_stages() -> u32 {
+	let dir = fs::read_dir(STAGE_LAYOUTS_PATH);
+	let paths = match dir {
+		Ok(p) => p,
+		Err(error) => panic!("Stage layouts not found! {error}"),
+	};
+	paths.count() as u32
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct SetupData {
 	pub stage_id: u32,
@@ -224,8 +235,14 @@ impl SetupData {
 	fn new(stage_id: u32) -> Self {
 		Self {
 			stage_id,
-			spotlight_translation: Vec3::new(6.0, 8.0, 4.0),
-			spotlight_intensity_multiplier: 1.0,
+			spotlight_translation: match stage_id {
+				4 => Vec3::new(12.0, 12.0, 12.0),
+				_ => Vec3::new(6.0, 8.0, 4.0),	
+			},	
+			spotlight_intensity_multiplier: match stage_id {
+				4 => 2.0,
+				_ => 1.0,
+			},
 			setup_done: false,
 			fast_forward: false,
 			fast_forward_buffer: 0,
@@ -322,6 +339,7 @@ impl GameplayConfig {
 			1 => { Self { goal: 5, start_speed: 1.0, speed_increment: 0.12 } }
 			2 => { Self { goal: 24, start_speed: 1.8, speed_increment: 0.04 } }
 			3 => { Self { goal: 12, start_speed: 3.0, speed_increment: 0.1 } }
+			4 => { Self { goal: 36, start_speed: 2.0, speed_increment: 0.01 } }
 			_ => { Self { goal: 10, start_speed: 1.0, speed_increment: 0.05 } }
 		}
 	}
