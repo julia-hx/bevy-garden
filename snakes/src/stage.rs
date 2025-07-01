@@ -5,7 +5,7 @@ use rand::prelude::*;
 
 const LAYOUT_FILEPATH: &str = "./assets/stage_layouts/stage_";
 const TILE_SIZE: f32 = 0.94;
-const DEFAULT_SPOTLIGHT_INTENSITY: f32 = 8_000_000.0;
+const DEFAULT_SPOTLIGHT_INTENSITY: f32 = 7_500_000.0;
 const DEFAULT_STAGE_SETTING_INTERVAL: f32 = 0.3;
 const GLITTER_INTERVAL: f32 = 0.03;
 
@@ -100,7 +100,7 @@ impl StageColors {
 			tiles_a: Color::srgb_u8(120, 120, 120),
 			tiles_b: Color::srgb_u8(60, 60, 60),
 			tiles_c: Color::srgb_u8(20, 20, 20),
-			clear_color: Color::srgb(0.1, 0.1, 0.12),
+			clear_color: Color::srgb(0.06, 0.06, 0.08),
 		}
 	}
 }
