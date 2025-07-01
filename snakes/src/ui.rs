@@ -61,6 +61,20 @@ fn init_ui_elements(mut commands: Commands) {
 		));
 	});
 
+	commands.spawn((
+		Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..default()
+        },
+	)).with_children(|builder| {
+		builder.spawn((
+			UIElement::new("info"),
+			Text::new("info"),
+		));
+	});
+
 	let container = commands.spawn((
 		Node {
 			width: Val::Percent(100.0),

@@ -75,17 +75,20 @@ impl GameState {
 			GameStateData::Setup (setup_data) => {
 				println!("game state: Setup stage {}", &setup_data.stage_id);
 				ui_writer.write(UIEvent{ id: "stage", text: format!("stage {}", &self.stage) });
+				ui_writer.write(UIEvent { id: "info", text: String::from("setting stage...") });
 			},
 			GameStateData::Start => {
 				println!("game state: Start");
 				ui_writer.write(UIEvent{ id: "header", text: String::from("START") });
 				ui_writer.write(UIEvent{ id: "sub_header", text: String::from("press space") });
+				ui_writer.write(UIEvent { id: "info", text: String::from("Player 1: Arrows - Player 2: WASD - Player 3: IJKL") });
 			},
 			GameStateData::Play (play_data) => {
 				println!("game state: Play stage {} goal {}", &play_data.stage_id, &play_data.goal);
 				ui_writer.write(UIEvent{ id: "header", text: String::from("") });
 				ui_writer.write(UIEvent{ id: "sub_header", text: String::from("") });
 				ui_writer.write(UIEvent { id: "score", text: format!("0 of {}", play_data.goal) });
+				ui_writer.write(UIEvent { id: "info", text: String::from("") });
 			},
 			GameStateData::Win (win_data) => {
 				println!("game state: Win stage {}", &win_data.play_data.stage_id);
@@ -107,6 +110,7 @@ impl GameState {
 				ui_writer.write(UIEvent { id: "sub_header", text: String::from("") });
 				ui_writer.write(UIEvent { id: "score", text: String::from("") });
 				ui_writer.write(UIEvent { id: "stage", text: String::from("") });
+				ui_writer.write(UIEvent { id: "info", text: String::from("") });
 			}
 		}
 	}
@@ -133,6 +137,7 @@ fn update_gamestate(
 			ui_writer.write(UIEvent { id: "sub_header", text: String::from("") });
 			ui_writer.write(UIEvent { id: "score", text: String::from("") });
 			ui_writer.write(UIEvent { id: "stage", text: String::from("") });
+			ui_writer.write(UIEvent { id: "info", text: String::from("") });
 			
 			game_state.final_stage = get_number_of_stages() - 1;
 			let saved_stage = load_starting_stage();
