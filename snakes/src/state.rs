@@ -241,13 +241,13 @@ impl SetupData {
 		Self {
 			stage_id,
 			spotlight_translation: match stage_id {
-				4 => Vec3::new(14.0, 16.0, 12.0),
+				5 => Vec3::new(14.0, 16.0, 12.0),
 				6 => Vec3::new(20.0, 12.0, 4.0),
 				_ => Vec3::new(6.0, 8.0, 4.0),	
 			},	
 			spotlight_intensity_multiplier: match stage_id {
 				1 => 0.5,
-				4 => 2.4,
+				5 => 2.4,
 				6 => 6.0,
 				_ => 1.0,
 			},
@@ -347,8 +347,8 @@ impl GameplayConfig {
 			1 => { Self { goal: 5, start_speed: 1.0, speed_increment: 0.12 } }
 			2 => { Self { goal: 24, start_speed: 1.8, speed_increment: 0.04 } }
 			3 => { Self { goal: 12, start_speed: 3.0, speed_increment: 0.1 } }
-			4 => { Self { goal: 36, start_speed: 2.0, speed_increment: 0.024 } }
-			5 => { Self { goal: 10, start_speed: 2.6, speed_increment: 0.08 } }
+			4 => { Self { goal: 10, start_speed: 2.6, speed_increment: 0.08 } }
+			5 => { Self { goal: 36, start_speed: 2.0, speed_increment: 0.012 } }
 			6 => { Self { goal: 8, start_speed: 2.2, speed_increment: 0.05 } }
 			_ => { Self { goal: 10, start_speed: 1.0, speed_increment: 0.05 } }
 		}

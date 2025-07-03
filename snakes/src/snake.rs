@@ -456,7 +456,7 @@ fn evaluate_all_falling(
 	query: Query<&mut Snake>,
 ) {
 	if let GameStateData::Play(play_data) = &mut game_state.data {
-		println!("all falling?");
+		// println!("all falling?");
 		let mut all_falling = true;
 		for snake in &query {
 			if snake.active && !snake.falling {

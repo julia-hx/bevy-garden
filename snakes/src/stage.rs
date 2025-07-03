@@ -530,7 +530,7 @@ impl Stage {
 			.unwrap_or('_');
 
 		match c {
-			'A' => {
+			'A' | 'a' => {
 				commands.spawn((
 					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
@@ -538,7 +538,7 @@ impl Stage {
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32), // coordinate swizzle xyz to xzy - top down view
 				));
 			}
-			'B' => {
+			'B' | 'b' => {
 				commands.spawn((
 					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
@@ -546,7 +546,7 @@ impl Stage {
 					Transform::from_xyz(data.x as f32, 0.5, data.y as f32),
 				));
 			}
-			'C' => {
+			'C' | 'c' => {
 				commands.spawn((
 					Tile::new(),
 					Mesh3d(meshes.add(Cuboid::new(TILE_SIZE, TILE_SIZE, TILE_SIZE))),
