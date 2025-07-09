@@ -1,3 +1,4 @@
+mod anim;
 mod snacks;
 mod snake;
 mod stage;
@@ -5,6 +6,7 @@ mod state;
 mod ui;
 
 use bevy::prelude::*;
+use anim::AnimPlugin;
 use snacks::SnacksPlugin;
 use snake::SnakePlugin;
 use stage::StagePlugin;
@@ -19,7 +21,7 @@ fn main() {
 			brightness: 450.0,
 			affects_lightmapped_meshes: false,
 		})
-		.add_plugins((StatePlugin, SnakePlugin, StagePlugin, SnacksPlugin, UIPlugin))
+		.add_plugins((StatePlugin, SnakePlugin, StagePlugin, SnacksPlugin, UIPlugin, AnimPlugin))
 		.add_plugins(DefaultPlugins)
 		.run();
 }

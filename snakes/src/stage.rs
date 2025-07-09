@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::state::{ GameState, GameStateData, GameStateEvent, PlayData, WinData };
+use crate::anim::{ TumbleAnim };
 use std::fs;
 use rand::prelude::*;
 
@@ -21,7 +22,7 @@ impl Plugin for StagePlugin {
 		app.add_systems(Update, (
 			read_gamestate_events,
 			update_stage,
-			despawn_tiles,
+			update_tiles,
 			update_spotlight,
 		).chain());
 	}
@@ -77,12 +78,12 @@ struct Stage {
 
 #[derive(Component)]
 struct Tile {
-
+	animated: bool,
 }
 
 impl Tile {
 	fn new() -> Self {
-		Tile {}
+		Tile { animated: false, }
 	}
 }
 
@@ -233,7 +234,7 @@ fn init_stage(
 fn read_gamestate_events(
 	mut gamestate_events: EventReader<GameStateEvent>,
 	mut event_writer: EventWriter<StageEvent>,
-	mut query: Query<&mut Stage>
+	mut query: Query<&mut Stage>,
 ) {
 	let event_data: &GameStateData;
 
@@ -270,7 +271,6 @@ fn read_gamestate_events(
 				event_writer.write(StageEvent { data: StageEventData::ClearSnack });
 			}
 			GameStateData::Death => {
-				
 			}
 			GameStateData::Reset(_counter) => {
 				event_writer.write(StageEvent { data: StageEventData::ClearSnack });
@@ -402,15 +402,26 @@ fn update_stage(
 	}
 }
 
-fn despawn_tiles(
-	mut game_state: ResMut<GameState>,
+fn update_tiles(
+	game_state: ResMut<GameState>,
 	mut commands: Commands,
-	query: Query<(Entity, &Tile, &mut Transform)>
+	query: Query<(Entity, &mut Tile, &mut Transform)>
 ) {
-	if let GameStateData::Reset(_counter) = &mut game_state.data {
-		for (entity, _tile, _transform) in query {
+	match &game_state.data {
+		GameStateData::Reset(_counter) => {
+			for (entity, _tile, _transform) in query {
 				commands.entity(entity).despawn();
 			}
+		},
+		GameStateData::Death => {
+			for (entity, mut tile, _transform) in query {
+				if !tile.animated {
+					commands.entity(entity).insert(TumbleAnim::new());
+					tile.animated = true;
+				}
+			}
+		},
+		_ => {}
 	}
 }
 
