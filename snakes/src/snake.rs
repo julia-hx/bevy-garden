@@ -446,7 +446,7 @@ fn despawn_segments(
 		GameStateData::Death => {
 			for (entity, mut segment) in query {
 				if !segment.animating {
-					commands.entity(entity).insert(TumbleAnim::new(1.0));
+					commands.entity(entity).insert(TumbleAnim::new(1.0, true));
 					segment.animating = true;
 				}
 			}

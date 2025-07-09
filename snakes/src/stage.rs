@@ -428,7 +428,7 @@ fn update_tiles(
 		GameStateData::Win(win_data) => {
 			for (entity, mut tile, _transform) in query {
 				if !tile.animated {
-					commands.entity(entity).insert(TumbleAnim::new(win_data.tumble_speed));
+					commands.entity(entity).insert(TumbleAnim::new(win_data.tumble_speed, false));
 					tile.animated = true;
 				}
 			}

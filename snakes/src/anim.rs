@@ -3,6 +3,9 @@ use rand::prelude::*;
 
 use crate::stage::{ StageCoordinate };
 
+const TUMBLE_MAX_TRANSLATION: i32 = 100;
+const TUMBLE_MAX_ROTATION: i32 = 9;
+
 pub struct AnimPlugin;
 
 impl Plugin for AnimPlugin {
@@ -21,14 +24,17 @@ pub struct TumbleAnim {
 }
 
 impl TumbleAnim {
-	pub fn new(speed: f32) -> Self {
-		let t_x = rand::random_range(-100..100) as f32 / 100.0;
-		let t_y = rand::random_range(-100..100) as f32 / 100.0;
-		let t_z = rand::random_range(-100..100) as f32 / 100.0;
+	pub fn new(speed: f32, unipolar_y: bool) -> Self {
+		let y_min = if unipolar_y { 0 } else { -TUMBLE_MAX_TRANSLATION };
+		let max = TUMBLE_MAX_TRANSLATION;
+		let t_x = rand::random_range(-max..max) as f32 / 100.0;
+		let t_y = rand::random_range(y_min..max) as f32 / 100.0;
+		let t_z = rand::random_range(-max..max) as f32 / 100.0;
 
-		let r_x = rand::random_range(-6..6) as f32;
-		let r_y = rand::random_range(-6..6) as f32;
-		let r_z = rand::random_range(-6..6) as f32;
+		let max = TUMBLE_MAX_ROTATION;
+		let r_x = rand::random_range(-max..max) as f32;
+		let r_y = rand::random_range(-max..max) as f32;
+		let r_z = rand::random_range(-max..max) as f32;
 		
 		Self {
 			translation: Vec3::new(t_x, t_y, t_z),
