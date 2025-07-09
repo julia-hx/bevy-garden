@@ -423,10 +423,10 @@ fn update_tiles(
 				}
 			}
 		}
-		GameStateData::Win(_win_data) => {
+		GameStateData::Win(win_data) => {
 			for (entity, mut tile, _transform) in query {
 				if !tile.animated {
-					commands.entity(entity).insert(TumbleAnim::new(1.0));
+					commands.entity(entity).insert(TumbleAnim::new(win_data.tumble_speed));
 					tile.animated = true;
 				}
 			}

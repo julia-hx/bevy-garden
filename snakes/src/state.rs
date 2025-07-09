@@ -357,12 +357,19 @@ impl GameplayConfig {
 #[derive(Debug, Clone)]
 pub struct WinData {
 	pub play_data: PlayData, // data from the stage that was won
+	pub tumble_speed: f32,
 }
 
 impl WinData {
 	fn new(play_data: PlayData) -> Self {
+		let speed = match play_data.stage_id {
+			0 => 0.01,
+			_ => 1.0
+		};
+		
 		Self {
 			play_data,
+			tumble_speed: speed,
 		}
 	}
 }
