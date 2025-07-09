@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::state::{ GameState, GameStateData, GameStateEvent, PlayData, WinData };
-use crate::anim::{ TumbleAnim };
+use crate::anim::{ TumbleAnim, OscillateAnim };
 use std::fs;
 use rand::prelude::*;
 
@@ -412,15 +412,25 @@ fn update_tiles(
 			for (entity, _tile, _transform) in query {
 				commands.entity(entity).despawn();
 			}
-		},
+		}
 		GameStateData::Death => {
-			for (entity, mut tile, _transform) in query {
+			for (entity, mut tile, transform) in query {
 				if !tile.animated {
-					commands.entity(entity).insert(TumbleAnim::new());
+					commands.entity(entity).insert(OscillateAnim::new(transform.translation, 
+						Vec3::new(0.0, 6.0, 0.0), 
+					Vec3::new(0.0, 12.0, 0.0)));
 					tile.animated = true;
 				}
 			}
-		},
+		}
+		GameStateData::Win(_win_data) => {
+			for (entity, mut tile, _transform) in query {
+				if !tile.animated {
+					commands.entity(entity).insert(TumbleAnim::new(1.0));
+					tile.animated = true;
+				}
+			}
+		}
 		_ => {}
 	}
 }
