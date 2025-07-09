@@ -413,6 +413,7 @@ fn update_tiles(
 				commands.entity(entity).despawn();
 			}
 		}
+		/*
 		GameStateData::Death => {
 			for (entity, mut tile, transform) in query {
 				if !tile.animated {
@@ -423,6 +424,7 @@ fn update_tiles(
 				}
 			}
 		}
+		*/
 		GameStateData::Win(win_data) => {
 			for (entity, mut tile, _transform) in query {
 				if !tile.animated {

@@ -3,6 +3,7 @@ use bevy::time::common_conditions::on_timer;
 
 use crate::state::{ GameState, GameStateData, GameStateEvent, SnakePlayData };
 use crate::stage::{ StageCoordinate, StageEvent, StageEventData };
+use crate::anim::{ TumbleAnim };
 
 use std::time::Duration;
 
@@ -83,6 +84,7 @@ pub struct Segment {
 	snake_id: u32,
 	coordinate: StageCoordinate,
 	move_counter: u32, // used to determine when to move each segment
+	animating: bool,
 }
 
 impl Segment {
@@ -91,6 +93,7 @@ impl Segment {
 			snake_id,
 			coordinate,
 			move_counter: 0,
+			animating: false,
 		}
 	}
 }
@@ -431,13 +434,24 @@ fn move_segments(
 
 fn despawn_segments(
 	game_state: ResMut<GameState>,
-	query: Query<Entity, With<Segment>>,
+	query: Query<(Entity, &mut Segment)>,
 	mut commands: Commands,
 ) {
-	if let GameStateData::Reset(_counter) = game_state.data {
-		for entity in query {
-			commands.entity(entity).despawn();
+	match game_state.data {
+		GameStateData::Reset(_counter) => {
+			for (entity, _segment) in query {
+				commands.entity(entity).despawn();
+			}
 		}
+		GameStateData::Death => {
+			for (entity, mut segment) in query {
+				if !segment.animating {
+					commands.entity(entity).insert(TumbleAnim::new(1.0));
+					segment.animating = true;
+				}
+			}
+		}
+		_ => {}
 	}
 }
 
