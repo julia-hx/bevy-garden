@@ -21,7 +21,7 @@ impl Plugin for StagePlugin {
 		app.add_systems(Update, (
 			read_gamestate_events,
 			update_stage,
-			update_tiles,
+			despawn_tiles,
 			update_spotlight,
 		).chain());
 	}
@@ -402,19 +402,15 @@ fn update_stage(
 	}
 }
 
-fn update_tiles(
+fn despawn_tiles(
 	mut game_state: ResMut<GameState>,
-	time: Res<Time>,
 	mut commands: Commands,
 	query: Query<(Entity, &Tile, &mut Transform)>
 ) {
-	match &mut game_state.data {
-		GameStateData::Reset(_counter) => {
-			for (entity, _tile, _transform) in query {
+	if let GameStateData::Reset(_counter) = &mut game_state.data {
+		for (entity, _tile, _transform) in query {
 				commands.entity(entity).despawn();
 			}
-		}
-		_=> {}
 	}
 }
 

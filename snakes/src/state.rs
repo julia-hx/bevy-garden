@@ -213,8 +213,7 @@ fn update_gamestate(
 fn load_starting_stage() -> u32 {
 	// liking rust here - this is so short and sweet!
 	let savedata = fs::read_to_string(STARTING_STAGE_PATH).unwrap_or_default();
-	let result = savedata.parse::<u32>().unwrap_or(0);
-	result
+	savedata.parse::<u32>().unwrap_or(0)
 }
 
 fn get_number_of_stages() -> u32 {
@@ -348,8 +347,8 @@ impl GameplayConfig {
 			2 => { Self { goal: 24, start_speed: 1.8, speed_increment: 0.04 } }
 			3 => { Self { goal: 12, start_speed: 3.0, speed_increment: 0.1 } }
 			4 => { Self { goal: 10, start_speed: 2.6, speed_increment: 0.08 } }
-			5 => { Self { goal: 36, start_speed: 2.0, speed_increment: 0.012 } }
-			6 => { Self { goal: 8, start_speed: 2.2, speed_increment: 0.05 } }
+			5 => { Self { goal: 36, start_speed: 2.0, speed_increment: 0.016 } }
+			6 => { Self { goal: 12, start_speed: 2.2, speed_increment: 0.05 } }
 			_ => { Self { goal: 10, start_speed: 1.0, speed_increment: 0.05 } }
 		}
 	}
