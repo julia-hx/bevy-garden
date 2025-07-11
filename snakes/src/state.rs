@@ -127,7 +127,7 @@ fn update_gamestate(
 	mut key_events: EventReader<KeyboardInput>,
 ) {
 	// This is similar to the classic gamestate switch in engines like unity - 
-	// makes the branching readable inside of one function.
+	// makes the branching readable inside one function.
 	// Using bevy State pattern the branching would move to Plugin.build(),
 	// separating it completely from each of the branch cases as separate systems.
 

@@ -1,3 +1,3 @@
 # bevy garden: snakes
 
-A local multiplayer version of snakes made in bevy.
+A local multiplayer version of snake made in bevy.

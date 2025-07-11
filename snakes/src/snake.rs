@@ -7,7 +7,7 @@ use crate::anim::{ TumbleAnim };
 
 use std::time::Duration;
 
-// snake pluging: snakes input and movement for up to 3 players
+// snake plugin: snakes input and movement for up to 3 players
 
 const SNAKE_HEAD_SIZE: Vec3 = Vec3::new(1.0, 0.8, 1.0);
 const SNAKE_SEGMENT_SIZE: Vec3 = Vec3::new(0.68, 0.6, 0.68);
@@ -33,7 +33,7 @@ impl Plugin for SnakePlugin {
 				move_snakes,
 				spawn_segments,
 				move_segments,
-				despawn_segments,
+				update_segments,
 				evaluate_all_falling.run_if(on_timer(Duration::from_secs(2))),
 			).chain()
 		);
@@ -432,7 +432,7 @@ fn move_segments(
 	}
 }
 
-fn despawn_segments(
+fn update_segments(
 	game_state: ResMut<GameState>,
 	query: Query<(Entity, &mut Segment)>,
 	mut commands: Commands,
