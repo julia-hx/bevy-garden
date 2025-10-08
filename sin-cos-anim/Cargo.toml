@@ -1,0 +1,11 @@
+[package]
+name = "sin-cos-anim"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[dependencies.bevy]
+version = "0.17.2"
+default-features = true
+features = [ "experimental_bevy_feathers" ]

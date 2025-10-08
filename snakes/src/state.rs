@@ -42,7 +42,7 @@ pub enum GameStateData {
 // the other is passively available as a global resource - 
 // but both are meant to contain the same data.
 // A better solution would be for the Resource to own the data, 
-// and the events to propagate a ref - but what lifetime?
+// and the events to propagate a ref.
 
 #[derive(Event)]
 pub struct GameStateEvent {
